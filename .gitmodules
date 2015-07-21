@@ -1,0 +1,7 @@
+[submodule "ext/openexr"]
+	path = ext/openexr
+	url = https://github.com/fnordware/openexr.git
+	branch = projects
+[submodule "ext/zlib"]
+	path = ext/zlib
+	url = https://github.com/madler/zlib.git
