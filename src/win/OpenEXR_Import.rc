@@ -1,0 +1,11 @@
+// This is our FCC filetype
+#define pEXR 0x70455852L		// Hex description 'pEXR'
+
+// For compatibility with Premiere 6.x, we still define a real IMPT resource
+1000 IMPT DISCARDABLE
+BEGIN
+	0x0000
+	pEXR
+END
+
+	
