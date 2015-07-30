@@ -57,9 +57,10 @@ typedef struct
 
 typedef struct
 {
+	char			magic[4];
 	csSDK_uint8		version;
 	csSDK_uint8		file_init;
-	csSDK_uint8		reserved[14];
+	csSDK_uint8		reserved[10];
 	char			red[Name::SIZE];
 	char			green[Name::SIZE];
 	char			blue[Name::SIZE];
@@ -604,6 +605,7 @@ SDKGetPrefs8(
 				{
 					memset(prefs, 0, sizeof(ImporterPrefs));
 					
+					strcpy(prefs->magic, "oEXR");
 					prefs->version = 1;
 					prefs->file_init = FALSE;
 					
@@ -614,6 +616,9 @@ SDKGetPrefs8(
 				}
 				else
 				{
+					assert(0 == strncmp(prefs->magic, "oEXR", 4));
+					assert(prefs->version == 1);
+				
 					auto_ptr<Imf::IStream> instream;
 					
 					if(fileInfo8->fileref != imInvalidHandleValue)
@@ -1321,7 +1326,10 @@ SDKGetSourceVideo(
 				
 		if(prefs && prefs->file_init)
 		{
-			red = prefs->red;
+			assert(0 == strncmp(prefs->magic, "oEXR", 4));
+			assert(prefs->version == 1);
+		
+					red = prefs->red;
 			green = prefs->green;
 			blue = prefs->blue;
 			alpha = prefs->alpha;
