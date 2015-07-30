@@ -19,6 +19,7 @@ typedef enum {
 	IBOutlet NSPopUpButton *greenMenu;
 	IBOutlet NSPopUpButton *blueMenu;
 	IBOutlet NSPopUpButton *alphaMenu;
+	IBOutlet NSButton *bypassCheckbox;
 	InDialogResult theResult;
 }
 
@@ -26,7 +27,8 @@ typedef enum {
 			red:(NSString *)redChannel
 			green:(NSString *)greenChannel
 			blue:(NSString *)blueChannel
-			alpha:(NSString *)alphaChannel;
+			alpha:(NSString *)alphaChannel
+			bypass:(BOOL)bypassConversion;
 
 - (IBAction)clickOK:(id)sender;
 - (IBAction)clickCancel:(id)sender;
@@ -38,5 +40,6 @@ typedef enum {
 - (NSString *)getGreen;
 - (NSString *)getBlue;
 - (NSString *)getAlpha;
+- (BOOL)getBypass;
 
 @end

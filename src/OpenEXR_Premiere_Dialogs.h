@@ -19,6 +19,7 @@ ProEXR_Channels(
 	std::string			&green,
 	std::string			&blue,
 	std::string			&alpha,
+	bool				&bypassConversion,
 	const void			*plugHndl,
 	const void			*mwnd);
 

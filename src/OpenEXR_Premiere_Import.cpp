@@ -60,7 +60,8 @@ typedef struct
 	char			magic[4];
 	csSDK_uint8		version;
 	csSDK_uint8		file_init;
-	csSDK_uint8		reserved[10];
+	csSDK_uint8		bypassConversion;
+	csSDK_uint8		reserved[9];
 	char			red[Name::SIZE];
 	char			green[Name::SIZE];
 	char			blue[Name::SIZE];
@@ -558,6 +559,7 @@ InitPrefs(
 		else
 			strcpy(prefs->alpha, "(none)");
 		
+		prefs->bypassConversion = false;
 		
 		prefs->file_init = TRUE;
 	}
@@ -659,8 +661,10 @@ SDKGetPrefs8(
 							green = prefs->green,
 							blue = prefs->blue,
 							alpha = prefs->alpha;
+							
+					bool bypassConversion = prefs->bypassConversion;
 					
-					bool clicked_ok = ProEXR_Channels(channels_list, red, green, blue, alpha, plugHndl, mwnd);
+					bool clicked_ok = ProEXR_Channels(channels_list, red, green, blue, alpha, bypassConversion, plugHndl, mwnd);
 					
 					
 					if(clicked_ok)
@@ -669,6 +673,8 @@ SDKGetPrefs8(
 						strncpy(prefs->green, green.c_str(), Name::MAX_LENGTH);
 						strncpy(prefs->blue, blue.c_str(), Name::MAX_LENGTH);
 						strncpy(prefs->alpha, alpha.c_str(), Name::MAX_LENGTH);
+						
+						prefs->bypassConversion = bypassConversion;
 					
 					#if kPrSDKPPixCacheSuiteVersion >= 4
 						PrSDKPPixCacheSuite *PPixCacheSuite = NULL;
@@ -727,6 +733,8 @@ SDKAnalysis(
 	imFileRef		SDKfileRef,
 	imAnalysisRec	*SDKAnalysisRec)
 {
+	ImporterPrefs *prefs = reinterpret_cast<ImporterPrefs *>(SDKAnalysisRec->prefs);
+
 	try
 	{
 		IStreamPr instream(SDKfileRef);
@@ -781,6 +789,11 @@ SDKAnalysis(
 			default:
 				info += "some weird compression";
 				break;
+		}
+		
+		if(prefs->bypassConversion)
+		{
+			info += ", Bypass linear conversion";
 		}
 		
 		if(info.size() > SDKAnalysisRec->buffersize - 1)
@@ -1228,22 +1241,6 @@ SDKGetSourceVideo(
 	ImporterLocalRec8Ptr ldataP = *ldataH;
 	ImporterPrefs *prefs = reinterpret_cast<ImporterPrefs *>(sourceVideoRec->prefs);
 	
-	assert(sourceVideoRec->inFrameFormats != NULL && sourceVideoRec->inNumFrameFormats == 1);
-	assert(sourceVideoRec->inFrameFormats[0].inPixelFormat == PrPixelFormat_BGRA_4444_32f_Linear);
-	
-	const imFrameFormat frameFormat = sourceVideoRec->inFrameFormats[0];
-			
-	// get the Premiere buffer
-	prRect theRect;
-	prSetRect(&theRect, 0, 0, frameFormat.inFrameWidth, frameFormat.inFrameHeight);
-	
-	RowbyteType rowBytes = 0;
-	char *buf = NULL;
-	
-	ldataP->PPixCreatorSuite->CreatePPix(sourceVideoRec->outFrame, PrPPixBufferAccess_ReadWrite, frameFormat.inPixelFormat, &theRect);
-	ldataP->PPixSuite->GetPixels(*sourceVideoRec->outFrame, PrPPixBufferAccess_WriteOnly, &buf);
-	ldataP->PPixSuite->GetRowBytes(*sourceVideoRec->outFrame, &rowBytes);
-
 
 	PPixHand temp_ppix = NULL;
 	
@@ -1256,6 +1253,59 @@ SDKGetSourceVideo(
 		// read the file
 		IStreamPr instream(fileRef);
 		HybridInputFile in(instream);
+		
+		
+		const char *red = "R", *green = "G", *blue = "B", *alpha = "A";
+		const char *y = "Y", *ry = "RY", *by = "BY";
+		
+		bool bypassConversion = false;
+				
+		if(prefs && prefs->file_init)
+		{
+			assert(0 == strncmp(prefs->magic, "oEXR", 4));
+			assert(prefs->version == 1);
+		
+			red = prefs->red;
+			green = prefs->green;
+			blue = prefs->blue;
+			alpha = prefs->alpha;
+			
+			bypassConversion = prefs->bypassConversion;
+		}
+		else if(in.channels().findChannel("Y") && !in.channels().findChannel("R"))
+		{
+			if(in.channels().findChannel("RY") && in.channels().findChannel("BY"))
+			{
+				red = y;
+				green = ry;
+				blue = by;
+			}
+			else
+			{
+				red = green = blue = y;
+			}
+		}
+		
+		
+		// make the Premiere buffer
+		assert(sourceVideoRec->inFrameFormats != NULL && sourceVideoRec->inNumFrameFormats == 1);
+		assert(sourceVideoRec->inFrameFormats[0].inPixelFormat == PrPixelFormat_BGRA_4444_32f_Linear);
+		
+		imFrameFormat frameFormat = sourceVideoRec->inFrameFormats[0];
+		
+		frameFormat.inPixelFormat = (bypassConversion ? PrPixelFormat_BGRA_4444_32f : PrPixelFormat_BGRA_4444_32f_Linear);
+				
+		prRect theRect;
+		prSetRect(&theRect, 0, 0, frameFormat.inFrameWidth, frameFormat.inFrameHeight);
+		
+		RowbyteType rowBytes = 0;
+		char *buf = NULL;
+		
+		ldataP->PPixCreatorSuite->CreatePPix(sourceVideoRec->outFrame, PrPPixBufferAccess_ReadWrite, frameFormat.inPixelFormat, &theRect);
+		ldataP->PPixSuite->GetPixels(*sourceVideoRec->outFrame, PrPPixBufferAccess_WriteOnly, &buf);
+		ldataP->PPixSuite->GetRowBytes(*sourceVideoRec->outFrame, &rowBytes);
+		
+
 
 		const Box2i &dispW = in.displayWindow();
 		const Box2i &dataW = in.dataWindow();
@@ -1321,35 +1371,7 @@ SDKGetSourceVideo(
 		}
 		
 		
-		const char *red = "R", *green = "G", *blue = "B", *alpha = "A";
-		const char *y = "Y", *ry = "RY", *by = "BY";
-				
-		if(prefs && prefs->file_init)
-		{
-			assert(0 == strncmp(prefs->magic, "oEXR", 4));
-			assert(prefs->version == 1);
-		
-					red = prefs->red;
-			green = prefs->green;
-			blue = prefs->blue;
-			alpha = prefs->alpha;
-		}
-		else if(in.channels().findChannel("Y") && !in.channels().findChannel("R"))
-		{
-			if(in.channels().findChannel("RY") && in.channels().findChannel("BY"))
-			{
-				red = y;
-				green = ry;
-				blue = by;
-			}
-			else
-			{
-				red = green = blue = y;
-			}
-		}
-		
-		
-		if(frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_32f_Linear)
+		if(frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_32f_Linear || frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_32f)
 		{
 			if(string(red) == "Y" &&
 				(string(green) == "RY" || string(green) == "Y") &&
@@ -1470,6 +1492,8 @@ SDKGetSourceVideo(
 				}
 			}
 		}
+		else
+			assert(false);
 	}
 	catch(...)
 	{

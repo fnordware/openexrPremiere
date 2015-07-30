@@ -24,6 +24,7 @@ ProEXR_Channels(
 	string				&green,
 	string				&blue,
 	string				&alpha,
+	bool				&bypassConversion,
 	const void			*plugHndl,
 	const void			*mwnd)
 {
@@ -49,7 +50,8 @@ ProEXR_Channels(
 													red:[NSString stringWithUTF8String:red.c_str()]
 													green:[NSString stringWithUTF8String:green.c_str()]
 													blue:[NSString stringWithUTF8String:blue.c_str()]
-													alpha:[NSString stringWithUTF8String:alpha.c_str()]];
+													alpha:[NSString stringWithUTF8String:alpha.c_str()]
+													bypass:bypassConversion];
 		if(ui_controller)
 		{
 			NSWindow *my_window = [ui_controller getWindow];
@@ -78,6 +80,8 @@ ProEXR_Channels(
 					green = [[ui_controller getGreen] cStringUsingEncoding:NSUTF8StringEncoding];
 					blue  = [[ui_controller getBlue]  cStringUsingEncoding:NSUTF8StringEncoding];
 					alpha = [[ui_controller getAlpha] cStringUsingEncoding:NSUTF8StringEncoding];
+					
+					bypassConversion = [ui_controller getBypass];
 					
 					result = true;
 				}
