@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by ProEXR_Import_Dialog.rc
+// Used by OpenEXR_Import_Dialog.rc
 //
 #define BANNER1                         102
 #define IDC_CHECK1                      1003

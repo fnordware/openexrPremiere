@@ -23,6 +23,7 @@ static string				*g_red;
 static string				*g_green;
 static string				*g_blue;
 static string				*g_alpha;
+static bool					g_bypass;
 
 
 // dialog item IDs
@@ -33,7 +34,8 @@ enum {
 	IN_Red_Menu = 3,
 	IN_Green_Menu, 
 	IN_Blue_Menu,
-	IN_Alpha_Menu
+	IN_Alpha_Menu,
+	IN_Bypass_Check
 };
 
 
@@ -87,6 +89,9 @@ static BOOL CALLBACK InDialogProc(HWND hwndDlg, UINT message, WPARAM wParam, LPA
 
 				current_index++;
 			}
+
+			SendMessage(GetDlgItem(hwndDlg, IN_Bypass_Check), BM_SETCHECK, (WPARAM)g_bypass, (LPARAM)0);
+
 		  }while(0);
 		return FALSE;
  
@@ -116,6 +121,8 @@ static BOOL CALLBACK InDialogProc(HWND hwndDlg, UINT message, WPARAM wParam, LPA
 							*value[j] = channel_name;
 						}
 
+						g_bypass = SendMessage(GetDlgItem(hwndDlg, IN_Bypass_Check), BM_GETCHECK, (WPARAM)0, (LPARAM)0);
+
 					}while(0);
 
 				case IN_Cancel:
@@ -135,6 +142,7 @@ ProEXR_Channels(
 	string				&green,
 	string				&blue,
 	string				&alpha,
+	bool				&bypassConversion,
 	const void			*plugHndl,
 	const void			*mwnd)
 {
@@ -145,6 +153,7 @@ ProEXR_Channels(
 	g_green = &green;
 	g_blue = &blue;
 	g_alpha = &alpha;
+	g_bypass = bypassConversion;
 
 
 	int status = DialogBox(hDllInstance, (LPSTR)"CHANDIALOG", (HWND)mwnd, (DLGPROC)InDialogProc);
@@ -156,6 +165,7 @@ ProEXR_Channels(
 		green = *g_green;
 		blue = *g_blue;
 		alpha = *g_alpha;
+		bypassConversion = g_bypass;
 
 		result = true;
 	}
