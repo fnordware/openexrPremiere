@@ -54,7 +54,7 @@ END
 
 CHANDIALOG DIALOGEX 0, 0, 209, 154
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "ProEXR Channels"
+CAPTION "OpenEXR"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,152,133,50,14
@@ -77,7 +77,7 @@ END
 // Bitmap
 //
 
-BANNER1                 BITMAP                  "ProEXR_banner.bmp"
+BANNER1                 BITMAP                  "OpenEXR_banner.bmp"
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 
