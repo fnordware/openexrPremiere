@@ -11,6 +11,8 @@
 
 #include <IexBaseExc.h>
 
+#include <assert.h>
+
 
 IStreamPr::IStreamPr(imFileRef fileRef) :
 	IStream("Premiere Import File"),
@@ -55,7 +57,7 @@ IStreamPr::tellg()
 	
 	return pos;
 #else
-	Int64 pos;
+	Imf::Int64 pos;
 	LARGE_INTEGER lpos, zero;
 
 	zero.QuadPart = 0;
@@ -63,7 +65,7 @@ IStreamPr::tellg()
 	BOOL result = SetFilePointerEx(_fileRef, zero, &lpos, FILE_CURRENT);
 
 	if(!result)
-		throw IoExc("Error calling SetFilePointerEx().");
+		throw Iex::IoExc("Error calling SetFilePointerEx().");
 
 	pos = lpos.QuadPart;
 	
@@ -88,7 +90,7 @@ IStreamPr::seekg(Imf::Int64 pos)
 	BOOL result = SetFilePointerEx(_fileRef, lpos, &out, FILE_BEGIN);
 
 	if(!result || lpos.QuadPart != out.QuadPart)
-		throw IoExc("Error calling SetFilePointerEx().");
+		throw Iex::IoExc("Error calling SetFilePointerEx().");
 #endif
 }
 
@@ -112,8 +114,7 @@ OStreamPr::~OStreamPr()
 {
 	prSuiteError err = suite->Close(_fileObject);
 	
-	if(err != suiteError_NoError)
-		throw Iex::IoExc("Error closing file.");
+	assert(err == suiteError_NoError);
 }
 
 
