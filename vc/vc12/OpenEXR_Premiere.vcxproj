@@ -1,0 +1,201 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{8C4F19A7-759E-4D52-BAEC-7ADF50FBFE8F}</ProjectGuid>
+    <RootNamespace>OpenEXR_Premiere</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v120</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC70.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>12.0.21005.1</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <IgnoreImportLibrary>true</IgnoreImportLibrary>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <TargetEnvironment>X64</TargetEnvironment>
+      <TypeLibraryName>.\Debug/ProEXR.tlb</TypeLibraryName>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>..\..\src;..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers;..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Utils;..\..\ext\openexr\IlmBase\config.windows;..\..\ext\openexr\IlmBase\Half;..\..\ext\openexr\IlmBase\Iex;..\..\ext\openexr\IlmBase\IlmThread;..\..\ext\openexr\IlmBase\Imath;..\..\ext\openexr\OpenEXR\config.windows;..\..\ext\openexr\OpenEXR\IlmImf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ISOLATION_AWARE_ENABLED=1;_DEBUG;WIN32;_WIN64;_WINDOWS;PRWIN_ENV;MSWindows;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <StructMemberAlignment>Default</StructMemberAlignment>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <PrecompiledHeaderOutputFile>.\Debug/ProEXR.pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\Debug/</AssemblerListingLocation>
+      <ObjectFileName>.\Debug/</ObjectFileName>
+      <ProgramDataBaseFileName>.\Debug/</ProgramDataBaseFileName>
+      <BrowseInformation>true</BrowseInformation>
+      <WarningLevel>Level3</WarningLevel>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;MSWindows;PRWIN_ENV;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
+      <ResourceOutputFileName>$(IntDir)%(Filename).res</ResourceOutputFileName>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>vfw32.lib;msacm32.lib;winmm.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)OpenEXR.prm</OutputFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>.\Debug/ProEXR.pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <TargetMachine>MachineX64</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <AdditionalIncludeDirectories>..\..\src;..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers;..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Utils;..\..\ext\openexr\IlmBase\config.windows;..\..\ext\openexr\IlmBase\Half;..\..\ext\openexr\IlmBase\Iex;..\..\ext\openexr\IlmBase\IlmThread;..\..\ext\openexr\IlmBase\Imath;..\..\ext\openexr\OpenEXR\config.windows;..\..\ext\openexr\OpenEXR\IlmImf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ISOLATION_AWARE_ENABLED=1;NDEBUG;WIN32;_WIN64;_WINDOWS;PRWIN_ENV;MSWindows;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <OutputFile>$(OutDir)OpenEXR.prm</OutputFile>
+      <TargetMachine>MachineX64</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <Image Include="..\..\src\win\OpenEXR_banner.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\..\src\win\OpenEXR_Import.rc" />
+    <ResourceCompile Include="..\..\src\win\OpenEXR_Import_Dialog.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKAlphaTypes.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKAsyncImporter.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKAudioSuite.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKClassData.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKEntry.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKImport.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKImporterShared.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKMALErrors.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKPixelFormat.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKPlugMemory.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKPlugPPix.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKPlugSuites.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKPlugUtilities.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKPlugWindow.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKPPixCacheSuite.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKPPixCreatorSuite.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKTimeSuite.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\PrSDKTypes.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\SPBasic.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\SPConfig.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\SPErrorCodes.h" />
+    <ClInclude Include="..\..\ext\Premiere Pro CC 2015 Win SDK\Examples\Headers\SPTypes.h" />
+    <ClInclude Include="..\..\src\ImfHybridInputFile.h" />
+    <ClInclude Include="..\..\src\OpenEXR_Premiere_Dialogs.h" />
+    <ClInclude Include="..\..\src\OpenEXR_Premiere_Export.h" />
+    <ClInclude Include="..\..\src\OpenEXR_Premiere_Import.h" />
+    <ClInclude Include="..\..\src\OpenEXR_Premiere_IO.h" />
+    <ClInclude Include="..\..\src\OpenEXR_UTF.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\ImfHybridInputFile.cpp" />
+    <ClCompile Include="..\..\src\win\OpenEXR_Premiere_Dialogs_Win.cpp" />
+    <ClCompile Include="..\..\src\OpenEXR_Premiere_Export.cpp" />
+    <ClCompile Include="..\..\src\OpenEXR_Premiere_Import.cpp" />
+    <ClCompile Include="..\..\src\OpenEXR_Premiere_IO.cpp" />
+    <ClCompile Include="..\..\src\OpenEXR_UTF.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\ext\openexr\IlmBase\vc\vc12\IlmBase\Half\Half.vcxproj">
+      <Project>{9edb5c0f-bfd0-4a59-bb93-f06a52bb0128}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ext\openexr\IlmBase\vc\vc12\IlmBase\Iex\Iex.vcxproj">
+      <Project>{c46b9a53-86d8-4b7f-ab15-b2c04518a195}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ext\openexr\IlmBase\vc\vc12\IlmBase\IlmThread\IlmThread.vcxproj">
+      <Project>{76addb29-9c6a-442c-9ba9-764c050f75dd}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ext\openexr\IlmBase\vc\vc12\IlmBase\Imath\Imath.vcxproj">
+      <Project>{39e34f88-dd2e-4a1c-96b7-624ea55fc1d7}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ext\openexr\OpenEXR\vc\vc12\OpenEXR\IlmImf\IlmImf.vcxproj">
+      <Project>{7df42126-d237-41d3-9abe-a3acc8bac56e}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="ext\zlib.vcxproj">
+      <Project>{8a2622bb-e7ee-42d9-a234-d533b2c84211}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
