@@ -20,6 +20,8 @@
 #include <ImfArray.h>
 #include <ImfStdIO.h>
 
+#include <algorithm>
+
 #include <stdio.h>
 #include <assert.h>
 
