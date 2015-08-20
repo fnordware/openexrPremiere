@@ -107,7 +107,7 @@ SDKInit(
 	importInfo->hasSetup			= kPrTrue;		// Set to kPrTrue if you have a setup dialog
 	importInfo->setupOnDblClk		= kPrFalse;		// If user dbl-clicks file you imported, pop your setup dialog
 	importInfo->keepLoaded			= kPrFalse;		// If you MUST stay loaded use, otherwise don't: play nice
-	importInfo->priority			= 0;
+	importInfo->priority			= 10;			// Original ProEXR plug-in had a priority of 0
 	importInfo->canTrim				= kPrFalse;
 	importInfo->canCalcSizes		= kPrFalse;
 	
