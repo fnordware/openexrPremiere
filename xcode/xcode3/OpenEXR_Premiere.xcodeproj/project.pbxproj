@@ -99,13 +99,13 @@
 
 /* Begin PBXFileReference section */
 		08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
-		112C3FBA0A8828B9001FFCCB /* PrSDKImport.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKImport.h; path = "../../ext/Premiere Pro CS5 Mac SDK/Examples/Headers/PrSDKImport.h"; sourceTree = SOURCE_ROOT; };
-		112C3FBB0A8828B9001FFCCB /* SPBasic.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SPBasic.h; path = "../../ext/Premiere Pro CS5 Mac SDK/Examples/Headers/SPBasic.h"; sourceTree = SOURCE_ROOT; };
-		112C3FC20A8828F9001FFCCB /* PrSDKStructs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKStructs.h; path = "../../ext/Premiere Pro CS5 Mac SDK/Examples/Headers/PrSDKStructs.h"; sourceTree = SOURCE_ROOT; };
-		112C3FC60A88292D001FFCCB /* PrSDKPPixCreatorSuite.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKPPixCreatorSuite.h; path = "../../ext/Premiere Pro CS5 Mac SDK/Examples/Headers/PrSDKPPixCreatorSuite.h"; sourceTree = SOURCE_ROOT; };
-		112C3FCA0A882955001FFCCB /* PrSDKPPixCacheSuite.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKPPixCacheSuite.h; path = "../../ext/Premiere Pro CS5 Mac SDK/Examples/Headers/PrSDKPPixCacheSuite.h"; sourceTree = SOURCE_ROOT; };
+		112C3FBA0A8828B9001FFCCB /* PrSDKImport.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKImport.h; path = "../../ext/Premiere Pro CS6 r2 Mac SDK/Examples/Headers/PrSDKImport.h"; sourceTree = SOURCE_ROOT; };
+		112C3FBB0A8828B9001FFCCB /* SPBasic.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SPBasic.h; path = "../../ext/Premiere Pro CS6 r2 Mac SDK/Examples/Headers/SPBasic.h"; sourceTree = SOURCE_ROOT; };
+		112C3FC20A8828F9001FFCCB /* PrSDKStructs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKStructs.h; path = "../../ext/Premiere Pro CS6 r2 Mac SDK/Examples/Headers/PrSDKStructs.h"; sourceTree = SOURCE_ROOT; };
+		112C3FC60A88292D001FFCCB /* PrSDKPPixCreatorSuite.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKPPixCreatorSuite.h; path = "../../ext/Premiere Pro CS6 r2 Mac SDK/Examples/Headers/PrSDKPPixCreatorSuite.h"; sourceTree = SOURCE_ROOT; };
+		112C3FCA0A882955001FFCCB /* PrSDKPPixCacheSuite.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKPPixCacheSuite.h; path = "../../ext/Premiere Pro CS6 r2 Mac SDK/Examples/Headers/PrSDKPPixCacheSuite.h"; sourceTree = SOURCE_ROOT; };
 		1157612B0AD5C4A200B6DA40 /* OpenEXR Premiere.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "OpenEXR Premiere.bundle"; sourceTree = BUILT_PRODUCTS_DIR; };
-		11D512BB0B1E7F490085D80B /* PrSDKTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKTypes.h; path = "../../ext/Premiere Pro CS5 Mac SDK/Examples/Headers/PrSDKTypes.h"; sourceTree = SOURCE_ROOT; };
+		11D512BB0B1E7F490085D80B /* PrSDKTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrSDKTypes.h; path = "../../ext/Premiere Pro CS6 r2 Mac SDK/Examples/Headers/PrSDKTypes.h"; sourceTree = SOURCE_ROOT; };
 		2A104EB0199C65D500E8BAB2 /* IlmBaseConfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IlmBaseConfig.h; path = ../../ext/openexr/IlmBase/xcode/xcode3/IlmBaseConfig.h; sourceTree = SOURCE_ROOT; };
 		2A104EB1199C65D500E8BAB2 /* IlmBase.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = IlmBase.xcodeproj; path = ../../ext/openexr/IlmBase/xcode/xcode3/IlmBase.xcodeproj; sourceTree = SOURCE_ROOT; };
 		2A104EB4199C65D500E8BAB2 /* OpenEXRConfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OpenEXRConfig.h; path = ../../ext/openexr/OpenEXR/xcode/xcode3/OpenEXRConfig.h; sourceTree = SOURCE_ROOT; };
@@ -253,9 +253,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		8D01CCC60486CAD60068D4B7 /* ProEXR Premiere */ = {
+		8D01CCC60486CAD60068D4B7 /* OpenEXR Premiere */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 4FADC23308B4156C00ABE55E /* Build configuration list for PBXNativeTarget "ProEXR Premiere" */;
+			buildConfigurationList = 4FADC23308B4156C00ABE55E /* Build configuration list for PBXNativeTarget "OpenEXR Premiere" */;
 			buildPhases = (
 				8D01CCC90486CAD60068D4B7 /* Resources */,
 				8D01CCCB0486CAD60068D4B7 /* Sources */,
@@ -269,7 +269,7 @@
 				2A6164D31B6191140093FC66 /* PBXTargetDependency */,
 				2A6164D51B6191140093FC66 /* PBXTargetDependency */,
 			);
-			name = "ProEXR Premiere";
+			name = "OpenEXR Premiere";
 			productInstallPath = "$(HOME)/Library/Bundles";
 			productName = SDK_File_Import;
 			productReference = 1157612B0AD5C4A200B6DA40 /* OpenEXR Premiere.bundle */;
@@ -308,7 +308,7 @@
 			);
 			projectRoot = "";
 			targets = (
-				8D01CCC60486CAD60068D4B7 /* ProEXR Premiere */,
+				8D01CCC60486CAD60068D4B7 /* OpenEXR Premiere */,
 			);
 		};
 /* End PBXProject section */
@@ -470,7 +470,7 @@
 					../../ext/openexr/OpenEXR/IlmImf,
 				);
 				PREBINDING = NO;
-				PREMIERE_SDK = "\"../../ext/Premiere Pro CS5 Mac SDK\"";
+				PREMIERE_SDK = "\"../../ext/Premiere Pro CS6 r2 Mac SDK\"";
 				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 			};
 			name = Debug;
@@ -490,7 +490,7 @@
 					../../ext/openexr/OpenEXR/IlmImf,
 				);
 				PREBINDING = NO;
-				PREMIERE_SDK = "\"../../ext/Premiere Pro CS5 Mac SDK\"";
+				PREMIERE_SDK = "\"../../ext/Premiere Pro CS6 r2 Mac SDK\"";
 				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 			};
 			name = Release;
@@ -498,7 +498,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		4FADC23308B4156C00ABE55E /* Build configuration list for PBXNativeTarget "ProEXR Premiere" */ = {
+		4FADC23308B4156C00ABE55E /* Build configuration list for PBXNativeTarget "OpenEXR Premiere" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4FADC23408B4156C00ABE55E /* Debug */,
