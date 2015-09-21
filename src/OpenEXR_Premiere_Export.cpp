@@ -76,15 +76,18 @@ exSDKStartup(
 	exportStdParms		*stdParmsP, 
 	exExporterInfoRec	*infoRecP)
 {
+	int fourCC = 0;
+	VersionInfo version = {0, 0, 0};
+	
 	PrSDKAppInfoSuite *appInfoSuite = NULL;
 	stdParmsP->getSPBasicSuite()->AcquireSuite(kPrSDKAppInfoSuite, kPrSDKAppInfoSuiteVersion, (const void**)&appInfoSuite);
 	
 	if(appInfoSuite)
 	{
-		int fourCC = 0;
-	
 		appInfoSuite->GetAppInfo(PrSDKAppInfoSuite::kAppInfo_AppFourCC, (void *)&fourCC);
 	
+		appInfoSuite->GetAppInfo(PrSDKAppInfoSuite::kAppInfo_Version, (void *)&version);
+		
 		stdParmsP->getSPBasicSuite()->ReleaseSuite(kPrSDKAppInfoSuite, kPrSDKAppInfoSuiteVersion);
 		
 		if(fourCC == kAppAfterEffects)
@@ -112,6 +115,20 @@ exSDKStartup(
 	infoRecP->isCacheable		= kPrFalse;
 
 
+	if(stdParmsP->interfaceVer >= 6 &&
+		((fourCC == kAppPremierePro && version.major >= 9) ||
+		 (fourCC == kAppMediaEncoder && version.major >= 9)))
+	{
+	#if EXPORTMOD_VERSION >= 6
+		infoRecP->canConformToMatchParams = kPrTrue;
+	#else
+		// in earlier SDKs, we'll cheat and set this ourselves
+		csSDK_uint32 *info = &infoRecP->isCacheable;
+		info[1] = kPrTrue; // one spot past isCacheable
+	#endif
+	}
+	
+	
 	if(gNumCPUs <= 1)
 	{
 	#ifdef PRMAC_ENV
