@@ -793,7 +793,7 @@ SDKAnalysis(
 				break;
 		}
 		
-		if(prefs->bypassConversion)
+		if(prefs != NULL && prefs->bypassConversion)
 		{
 			info += ", Bypass linear conversion";
 		}
