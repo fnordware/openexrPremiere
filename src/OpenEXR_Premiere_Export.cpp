@@ -363,6 +363,10 @@ exSDKQueryOutputSettings(
 	// return outBitratePerSecond in kbps
 	outputSettingsP->outBitratePerSecond = (videoBitrate * 8) / 1024;
 
+#if EXPORTMOD_VERSION >= 5
+	// always doing maximum precision
+	outputSettingsP->outUseMaximumRenderPrecision = kPrTrue;
+#endif
 
 	return result;
 }
@@ -599,10 +603,10 @@ exSDKExport(
 	renderParms.inHeight = heightP.value.intValue;
 	renderParms.inPixelAspectRatioNumerator = pixelAspectRatioP.value.ratioValue.numerator;
 	renderParms.inPixelAspectRatioDenominator = pixelAspectRatioP.value.ratioValue.denominator;
-	renderParms.inRenderQuality = kPrRenderQuality_High;
+	renderParms.inRenderQuality = (exportInfoP->maximumRenderQuality ? kPrRenderQuality_Max : kPrRenderQuality_High);
 	renderParms.inFieldType = fieldTypeP.value.intValue;
 	renderParms.inDeinterlace = kPrFalse;
-	renderParms.inDeinterlaceQuality = kPrRenderQuality_High;
+	renderParms.inDeinterlaceQuality = (exportInfoP->maximumRenderQuality ? kPrRenderQuality_Max : kPrRenderQuality_High);
 	renderParms.inCompositeOnBlack = (alphaP.value.intValue ? kPrFalse: kPrTrue);
 	
 	
@@ -1301,6 +1305,13 @@ exSDKPostProcessParams(
 	utf16ncpy(paramString, "Compression", 255);
 	exportParamSuite->SetParamName(exID, gIdx, EXRCompression, paramString);
 	
+#if EXPORTMOD_VERSION >= 5
+	utf16ncpy(paramString,
+				"Compression format to use in the EXR file. None, RLE, Zip, Zip16, and Piz are all lossless.",
+				255);
+	exportParamSuite->SetParamDescription(exID, gIdx, EXRCompression, paramString);
+#endif
+	
 	const char *compressionStrings[] = {"None",
 										"RLE",
 										"Zip",
@@ -1339,6 +1350,15 @@ exSDKPostProcessParams(
 	utf16ncpy(paramString, "Compression Level", 255);
 	exportParamSuite->SetParamName(exID, gIdx, EXRCompressionLevel, paramString);
 	
+#if EXPORTMOD_VERSION >= 5
+	utf16ncpy(paramString,
+				"Lossy compression level to use with DWAA/B compression. "
+				"Higher values mean smaller files, lower image quality. "
+				"Default is 45.0.",
+				255);
+	exportParamSuite->SetParamDescription(exID, gIdx, EXRCompressionLevel, paramString);
+#endif
+
 	exParamValues compressionLevelValues;
 	exportParamSuite->GetParamValue(exID, gIdx, EXRCompressionLevel, &compressionLevelValues);
 
@@ -1352,16 +1372,38 @@ exSDKPostProcessParams(
 	utf16ncpy(paramString, "Luminance/Chroma", 255);
 	exportParamSuite->SetParamName(exID, gIdx, EXRLumiChrom, paramString);
 	
+#if EXPORTMOD_VERSION >= 5
+	utf16ncpy(paramString,
+				"Create OpenEXR with subsampled chroma channels, shrinking file size. "
+				"Image artifacts could be introduced.",
+				255);
+	exportParamSuite->SetParamDescription(exID, gIdx, EXRLumiChrom, paramString);
+#endif
 	
 	// 32-bit float
 	utf16ncpy(paramString, "32-bit float (not recommended)", 255);
 	exportParamSuite->SetParamName(exID, gIdx, EXRFloat, paramString);
 	
+#if EXPORTMOD_VERSION >= 5
+	utf16ncpy(paramString,
+				"Store pixels in 32-bit float instead of OpenEXR's standard 16-bit float. "
+				"In most cases this option will needlessly increase file size.",
+				255);
+	exportParamSuite->SetParamDescription(exID, gIdx, EXRFloat, paramString);
+#endif
 	
 	// Bypass Linear Conversion
 	utf16ncpy(paramString, "Bypass linear conversion", 255);
 	exportParamSuite->SetParamName(exID, gIdx, EXRBypassLinear, paramString);
 	
+#if EXPORTMOD_VERSION >= 5
+	utf16ncpy(paramString,
+				"OpenEXR files typically store images in linear color space, "
+				"converted from Premiere's internal video color space. "
+				"This option allows you to skip the conversion.",
+				255);
+	exportParamSuite->SetParamDescription(exID, gIdx, EXRBypassLinear, paramString);
+#endif
 	
 	// Image Settings group
 	utf16ncpy(paramString, "Image Settings", 255);
@@ -1678,7 +1720,7 @@ exSDKGetParamSummary(
 
 
 static prMALError
-exSDKValidateParamChanged (
+exSDKValidateParamChanged(
 	exportStdParms		*stdParmsP, 
 	exParamChangedRec	*validateParamChangedRecP)
 {
@@ -1731,7 +1773,7 @@ exSDKValidateParamChanged (
 }
 
 
-DllExport PREMPLUGENTRY xSDKExport (
+DllExport PREMPLUGENTRY xSDKExport(
 	csSDK_int32		selector, 
 	exportStdParms	*stdParmsP, 
 	void			*param1, 
