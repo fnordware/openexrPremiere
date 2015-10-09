@@ -40,6 +40,8 @@ static const csSDK_int32 OpenEXR_ID = 'oEXR';
 
 extern unsigned int gNumCPUs;
 
+static half *lin2vid_lut = NULL;
+
 
 typedef struct
 {	
@@ -134,6 +136,26 @@ SDKInit(
 	}
 	
 	
+	// set up lin2vid LUT
+	const int lut_size = (1L << 16);
+	
+	lin2vid_lut = new half[lut_size];
+	
+	for(int i = 0; i < lut_size; i++)
+	{
+		half in;
+		
+		in.setBits(i);
+		
+		if(in < 0.f)
+			in = -in;
+		
+		// Premiere's linear to Rec709 conversion
+		// Oddly, not quite 1/2.2;
+		lin2vid_lut[i] = pow(in, 0.45f);
+	}
+	
+	
 	return malNoError;
 }
 
@@ -143,6 +165,8 @@ SDKShutdown()
 {
 	if( supportsThreads() )
 		setGlobalThreadCount(0);
+	
+	delete [] lin2vid_lut;
 	
 	return malNoError;
 }
@@ -603,6 +627,13 @@ SDKGetPrefs8(
 		{
 			try
 			{
+				// Here we don't actually pop the dialog when prefsRec->firstTime.  For still images,
+				// I'm getting called for prefsRec->prefsLength and prefsRec->firstTime right after
+				// importing the file, so I wait for a third prefs call before popping a dialog.
+				// For sequences I don't get those two calls until the user does a Source Settings,
+				// so they will get no dialog until they do Source Settings a second time.
+				// Would be nice if Premiere treated sequences and stills the same.
+			
 				if(prefsRec->firstTime)
 				{
 					memset(prefs, 0, sizeof(ImporterPrefs));
@@ -716,6 +747,10 @@ SDKGetIndPixelFormat(
 	{
 		case 0:
 			SDKIndPixelFormatRec->outPixelFormat = PrPixelFormat_BGRA_4444_32f_Linear;
+			break;
+	
+		case 1:
+			SDKIndPixelFormatRec->outPixelFormat = PrPixelFormat_BGRA_4444_8u;
 			break;
 	
 		default:
@@ -1106,34 +1141,37 @@ static void FixSubsampling(const FrameBuffer &framebuffer, const Box2i &dw)
 }
 
 
+template <typename T>
 class FillRowTask : public Task
 {
 public:
-	FillRowTask(TaskGroup *group, char *pixel_origin, RowbyteType rowbytes, float value, int width, int row);
+	FillRowTask(TaskGroup *group, char *pixel_origin, RowbyteType rowbytes, T value, int width, int row);
 	virtual ~FillRowTask() {}
 	
 	virtual void execute();
 	
 private:
-	float *_pixel_row;
-	const float _value;
+	T *_pixel_row;
+	const T _value;
 	const int _width;
 };
 
 
-FillRowTask::FillRowTask(TaskGroup *group, char *pixel_origin, RowbyteType rowbytes, float value, int width, int row) :
+template <typename T>
+FillRowTask<T>::FillRowTask(TaskGroup *group, char *pixel_origin, RowbyteType rowbytes, T value, int width, int row) :
 	Task(group),
 	_value(value),
 	_width(width)
 {
-	_pixel_row = (float *)(pixel_origin + (rowbytes * row));
+	_pixel_row = (T *)(pixel_origin + (rowbytes * row));
 }
 
 
+template <typename T>
 void
-FillRowTask::execute()
+FillRowTask<T>::execute()
 {
-	float *pix = _pixel_row;
+	T *pix = _pixel_row;
 	
 	for(int x=0; x < _width; x++)
 	{
@@ -1185,46 +1223,120 @@ ConvertRgbaRowTask::execute()
 }
 
 
+template <typename T>
 class CopyPPixRowTask : public Task
 {
   public:
 	CopyPPixRowTask(TaskGroup *group,
 					const char *input_origin, RowbyteType input_rowbytes,
-					char *output_origin, RowbyteType output_rowbytes,
+					char *output_origin, RowbyteType output_rowbytes, bool lin2vid,
 					int width, int row);
 	virtual ~CopyPPixRowTask() {}
 	
 	virtual void execute();
+	
+	static inline T convert(const float &val);
 
   private:
 	const float *_input_row;
-	float *_output_row;
+	T *_output_row;
+	const bool _lin2vid;
 	const int _width;
 };
 
 
-CopyPPixRowTask::CopyPPixRowTask(TaskGroup *group,
+template <typename T>
+CopyPPixRowTask<T>::CopyPPixRowTask(TaskGroup *group,
 									const char *input_origin, RowbyteType input_rowbytes,
-									char *output_origin, RowbyteType output_rowbytes,
+									char *output_origin, RowbyteType output_rowbytes, bool lin2vid,
 									int width, int row) :
 	Task(group),
+	_lin2vid(lin2vid),
 	_width(width)
 {
 	_input_row = (float *)(input_origin + (input_rowbytes * row));
-	_output_row = (float *)(output_origin + (output_rowbytes * row));
+	_output_row = (T *)(output_origin + (output_rowbytes * row));
 }
 
 
+template <typename T>
 void
-CopyPPixRowTask::execute()
+CopyPPixRowTask<T>::execute()
 {
 	const float *in = _input_row;
-	float *out = _output_row;
+	T *out = _output_row;
 	
-	for(int x=0; x < _width; x++)
+	if(_lin2vid)
 	{
-		*out++ = *in++;
+		assert(sizeof(T) == sizeof(unsigned char)); // i.e. only doing this for 8-bit
+		assert(lin2vid_lut != NULL);
+	
+		for(int x=0; x < _width; x++)
+		{
+			// When performing a color adjustment like lin2vid, you must do it
+			// to un-premultiplied pixels.  EXR comes in premultiplied so we convert
+			// to un-, do the transformation, then convert back to premultipled.
+			
+			half b = *in++;
+			half g = *in++;
+			half r = *in++;
+			const float a = *in++;
+			
+			// un-premultiply
+			if(a < 1.0f && a > 0.0f)
+			{
+				b /= a;
+				g /= a;
+				r /= a;
+			}
+			
+			b = lin2vid_lut[b.bits()];
+			g = lin2vid_lut[g.bits()];
+			r = lin2vid_lut[r.bits()];
+			
+			// re-premultiply
+			if(a < 1.0f && a > 0.0f)
+			{
+				b *= a;
+				g *= a;
+				r *= a;
+			}
+			
+			*out++ = convert(b);
+			*out++ = convert(g);
+			*out++ = convert(r);
+			*out++ = convert(a);
+		}
 	}
+	else
+	{
+		for(int x=0; x < _width; x++)
+		{
+			// BGRA
+			*out++ = convert(*in++);
+			*out++ = convert(*in++);
+			*out++ = convert(*in++);
+			*out++ = convert(*in++);
+		}
+	}
+}
+
+
+template <>
+inline float
+CopyPPixRowTask<float>::convert(const float &val)
+{
+	return val;
+}
+
+
+template <>
+inline unsigned char
+CopyPPixRowTask<unsigned char>::convert(const float &val)
+{
+	const float clamped = (val > 1.0f ? 1.0f : (val < 0.0f ? 0.f : val));
+	
+	return (clamped * 255.f + 0.5f);
 }
 
 
@@ -1289,17 +1401,20 @@ SDKGetSourceVideo(
 		
 		// make the Premiere buffer
 		assert(sourceVideoRec->inFrameFormats != NULL && sourceVideoRec->inNumFrameFormats == 1);
-		assert(sourceVideoRec->inFrameFormats[0].inPixelFormat == PrPixelFormat_BGRA_4444_32f_Linear);
 		
 		imFrameFormat frameFormat = sourceVideoRec->inFrameFormats[0];
 		
-		frameFormat.inPixelFormat = (bypassConversion ? PrPixelFormat_BGRA_4444_32f : PrPixelFormat_BGRA_4444_32f_Linear);
+		const PrPixelFormat float_format = (bypassConversion ? PrPixelFormat_BGRA_4444_32f : PrPixelFormat_BGRA_4444_32f_Linear);
+		
+		const bool do_8bit = (frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_8u);
+		
+		frameFormat.inPixelFormat = (do_8bit ? PrPixelFormat_BGRA_4444_8u : float_format);
 				
 		prRect theRect;
 		prSetRect(&theRect, 0, 0, frameFormat.inFrameWidth, frameFormat.inFrameHeight);
 		
-		RowbyteType rowBytes = 0;
 		char *buf = NULL;
+		RowbyteType rowBytes = 0;
 		
 		ldataP->PPixCreatorSuite->CreatePPix(sourceVideoRec->outFrame, PrPPixBufferAccess_ReadWrite, frameFormat.inPixelFormat, &theRect);
 		ldataP->PPixSuite->GetPixels(*sourceVideoRec->outFrame, PrPPixBufferAccess_WriteOnly, &buf);
@@ -1314,186 +1429,212 @@ SDKGetSourceVideo(
 		assert(frameFormat.inFrameHeight == dispW.max.y - dispW.min.y + 1);
 		
 		
+		// if some pixels will not be written to,
+		// clear the PPixHand out first
+		if( (in.parts() > 1) ||
+			(dataW.min.x > dispW.min.x) ||
+			(dataW.min.y > dispW.min.y) ||
+			(dataW.max.x < dispW.max.x) ||
+			(dataW.max.y < dispW.max.y) )
+		{
+			TaskGroup taskGroup;
+			
+			if(frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_8u)
+			{
+				for(int y=0; y < frameFormat.inFrameHeight; y++)
+				{
+					ThreadPool::addGlobalTask(new FillRowTask<unsigned char>(&taskGroup, buf, rowBytes, 0,
+																		frameFormat.inFrameWidth * 4, y) );
+				}
+			}
+			else
+			{
+				for(int y=0; y < frameFormat.inFrameHeight; y++)
+				{
+					ThreadPool::addGlobalTask(new FillRowTask<float>(&taskGroup, buf, rowBytes, 0.f,
+																		frameFormat.inFrameWidth * 4, y) );
+				}
+			}
+			
+			// if the dataWindow does not actually intersect the displayWindow,
+			// no need to continue further
+			if( !dataW.intersects(dispW) )
+			{
+				return result;
+			}
+		}
+		
+		
 		char *dataW_origin = buf;
 		RowbyteType dataW_rowbytes = rowBytes;
 		csSDK_int32 dataW_width = frameFormat.inFrameWidth;
 		csSDK_int32 dataW_height = frameFormat.inFrameHeight;
 		
 		
-		if((dataW != dispW) || (in.parts() > 1))
+		dataW_width = dataW.max.x - dataW.min.x + 1;
+		dataW_height = dataW.max.y - dataW.min.y + 1;
+		
+		// if dataWindow is completely inside displayWindow, we can use the
+		// existing PPixHand, otherwise have to create a new one.
+		// Or maybe we need a temp float buffer before we copy to an 8-bit one later.
+		if( (dataW.min.x >= dispW.min.x) &&
+			(dataW.min.y >= dispW.min.y) &&
+			(dataW.max.x <= dispW.max.x) &&
+			(dataW.max.y <= dispW.max.y) &&
+			!do_8bit)
 		{
-			// if some pixels will not be written to,
-			// clear the PPixHand out first
-			if( (in.parts() > 1) ||
-				(dataW.min.x > dispW.min.x) ||
-				(dataW.min.y > dispW.min.y) ||
-				(dataW.max.x < dispW.max.x) ||
-				(dataW.max.y < dispW.max.y) )
-			{
-				TaskGroup taskGroup;
-				
-				for(int y=0; y < frameFormat.inFrameHeight; y++)
-				{
-					ThreadPool::addGlobalTask(new FillRowTask(&taskGroup, buf, rowBytes, 0.f,
-																frameFormat.inFrameWidth * 4, y) );
-				}
-				
-				// if the dataWindow does not actually intersect the displayWindow,
-				// no need to continue further
-				if( !dataW.intersects(dispW) )
-				{
-					return result;
-				}
-			}
+			dataW_origin = buf + (rowBytes * (dispW.max.y - dataW.max.y)) + (sizeof(float) * 4 * (dataW.min.x - dispW.min.x));
+		}
+		else
+		{
+			prRect tempRect;
+			prSetRect(&tempRect, 0, 0, dataW_width, dataW_height);
 			
-			
-			dataW_width = dataW.max.x - dataW.min.x + 1;
-			dataW_height = dataW.max.y - dataW.min.y + 1;
-			
-			// if dataWindow is completely inside displayWindow, we can use the
-			// existing PPixHand, otherwise have to create a new one
-			if( (dataW.min.x >= dispW.min.x) &&
-				(dataW.min.y >= dispW.min.y) &&
-				(dataW.max.x <= dispW.max.x) &&
-				(dataW.max.y <= dispW.max.y) )
-			{
-				dataW_origin = buf + (rowBytes * (dispW.max.y - dataW.max.y)) + (sizeof(float) * 4 * (dataW.min.x - dispW.min.x));
-			}
-			else
-			{
-				prRect tempRect;
-				prSetRect(&tempRect, 0, 0, dataW_width, dataW_height);
-				
-				ldataP->PPixCreatorSuite->CreatePPix(&temp_ppix, PrPPixBufferAccess_ReadWrite, frameFormat.inPixelFormat, &tempRect);
-				ldataP->PPixSuite->GetPixels(temp_ppix, PrPPixBufferAccess_ReadWrite, &dataW_origin);
-				ldataP->PPixSuite->GetRowBytes(temp_ppix, &dataW_rowbytes);
-			}
+			ldataP->PPixCreatorSuite->CreatePPix(&temp_ppix, PrPPixBufferAccess_ReadWrite, float_format, &tempRect);
+			ldataP->PPixSuite->GetPixels(temp_ppix, PrPPixBufferAccess_ReadWrite, &dataW_origin);
+			ldataP->PPixSuite->GetRowBytes(temp_ppix, &dataW_rowbytes);
 		}
 		
 		
-		if(frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_32f_Linear || frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_32f)
+		// read into the float buffer
+		if(string(red) == "Y" &&
+			(string(green) == "RY" || string(green) == "Y") &&
+			(string(blue) == "BY" || string(blue) == "Y") )
 		{
-			if(string(red) == "Y" &&
-				(string(green) == "RY" || string(green) == "Y") &&
-				(string(blue) == "BY" || string(blue) == "Y") )
-			{
-				instream.seekg(0);
-				
-				Array2D<Rgba> half_buffer(dataW_height, dataW_width);
-				
-				RgbaInputFile inputFile(instream);
-				
-				inputFile.setFrameBuffer(&half_buffer[-dataW.min.y][-dataW.min.x], 1, dataW_width);
-				inputFile.readPixels(dataW.min.y, dataW.max.y);
-				
-				
-				TaskGroup taskGroup;
-				
-				char *buf_row = dataW_origin;
-				
-				for(int y = dataW_height - 1; y >= 0; y--)
-				{
-					float *buf_pix = (float *)buf_row;
-					
-					ThreadPool::addGlobalTask(new ConvertRgbaRowTask(&taskGroup,
-																		&half_buffer[y][0],
-																		buf_pix,
-																		dataW_width) );
-					
-					buf_row += dataW_rowbytes;
-				}
-			}
-			else
-			{
-				FrameBuffer frameBuffer;
-				
-				char *exr_BGRA_origin = (char *)dataW_origin - (sizeof(float) * 4 * dataW.min.x) + (dataW_rowbytes * dataW.max.y);
-				
-				
-				const char *chan[4] = { blue, green, red, alpha };
-				
-				for(int c=0; c < 4; c++)
-				{
-					float fill = (c == 3 ? 1.f : 0.f);
-				
-					int xSampling = 1,
-						ySampling = 1;
-					
-					const Channel *channel = in.channels().findChannel(chan[c]);
-					
-					if(channel)
-					{
-						xSampling = channel->xSampling;
-						ySampling = channel->ySampling;
-					}
-					
-					frameBuffer.insert(chan[c],
-										Slice(Imf::FLOAT,
-												exr_BGRA_origin + (sizeof(float) * c),
-												sizeof(float) * 4,
-												-dataW_rowbytes,
-												xSampling, ySampling, fill) );
-				}
-	
-
-				in.setFrameBuffer(frameBuffer);
-				
-				in.readPixels(dataW.min.y, dataW.max.y);
-				
-				FixSubsampling(frameBuffer, dataW);
-			}
+			instream.seekg(0);
+			
+			Array2D<Rgba> half_buffer(dataW_height, dataW_width);
+			
+			RgbaInputFile inputFile(instream);
+			
+			inputFile.setFrameBuffer(&half_buffer[-dataW.min.y][-dataW.min.x], 1, dataW_width);
+			inputFile.readPixels(dataW.min.y, dataW.max.y);
 			
 			
-			if(temp_ppix)
+			TaskGroup taskGroup;
+			
+			char *buf_row = dataW_origin;
+			
+			for(int y = dataW_height - 1; y >= 0; y--)
 			{
-				// have to draw dataWindow pixels inside the displayWindow
-				prPoint disp_origin, data_origin;
+				float *buf_pix = (float *)buf_row;
 				
-				if(dispW.min.x < dataW.min.x)
-				{
-					disp_origin.x = dataW.min.x - dispW.min.x;
-					data_origin.x = 0;
-				}
-				else
-				{
-					disp_origin.x = 0;
-					data_origin.x = dispW.min.x - dataW.min.x;
-				}
+				ThreadPool::addGlobalTask(new ConvertRgbaRowTask(&taskGroup,
+																	&half_buffer[y][0],
+																	buf_pix,
+																	dataW_width) );
 				
-				
-				if(dispW.max.y > dataW.max.y)
-				{
-					disp_origin.y = dispW.max.y - dataW.max.y;
-					data_origin.y = 0;
-				}
-				else
-				{
-					disp_origin.y = 0;
-					data_origin.y = dataW.max.y - dispW.max.y;
-				}
-				
-				
-				char *display_pixel_origin = buf + (disp_origin.y * rowBytes) + (disp_origin.x * sizeof(float) * 4);
-				
-				char *data_pixel_origin = dataW_origin + (data_origin.y * dataW_rowbytes) + (data_origin.x * sizeof(float) * 4);
-				
-				int copy_width = min(dispW.max.x, dataW.max.x) - max(dispW.min.x, dataW.min.x) + 1;
-				int copy_height = min(dispW.max.y, dataW.max.y) - max(dispW.min.y, dataW.min.y) + 1;
-				
-				
-				TaskGroup taskGroup;
-				
-				for(int y=0; y < copy_height; y++)
-				{
-					ThreadPool::addGlobalTask(new CopyPPixRowTask(&taskGroup,
-														data_pixel_origin, dataW_rowbytes,
-														display_pixel_origin, rowBytes,
-														copy_width * 4, y) );
-				}
+				buf_row += dataW_rowbytes;
 			}
 		}
 		else
-			assert(false);
+		{
+			FrameBuffer frameBuffer;
+			
+			char *exr_BGRA_origin = (char *)dataW_origin - (sizeof(float) * 4 * dataW.min.x) + (dataW_rowbytes * dataW.max.y);
+			
+			
+			const char *chan[4] = { blue, green, red, alpha };
+			
+			for(int c=0; c < 4; c++)
+			{
+				float fill = (c == 3 ? 1.f : 0.f);
+			
+				int xSampling = 1,
+					ySampling = 1;
+				
+				const Channel *channel = in.channels().findChannel(chan[c]);
+				
+				if(channel)
+				{
+					xSampling = channel->xSampling;
+					ySampling = channel->ySampling;
+				}
+				
+				frameBuffer.insert(chan[c],
+									Slice(Imf::FLOAT,
+											exr_BGRA_origin + (sizeof(float) * c),
+											sizeof(float) * 4,
+											-dataW_rowbytes,
+											xSampling, ySampling, fill) );
+			}
+
+
+			in.setFrameBuffer(frameBuffer);
+			
+			in.readPixels(dataW.min.y, dataW.max.y);
+			
+			FixSubsampling(frameBuffer, dataW);
+		}
+		
+		
+		if(temp_ppix)
+		{
+			// have to draw dataWindow pixels inside the displayWindow
+			prPoint disp_origin, data_origin;
+			
+			if(dispW.min.x < dataW.min.x)
+			{
+				disp_origin.x = dataW.min.x - dispW.min.x;
+				data_origin.x = 0;
+			}
+			else
+			{
+				disp_origin.x = 0;
+				data_origin.x = dispW.min.x - dataW.min.x;
+			}
+			
+			
+			if(dispW.max.y > dataW.max.y)
+			{
+				disp_origin.y = dispW.max.y - dataW.max.y;
+				data_origin.y = 0;
+			}
+			else
+			{
+				disp_origin.y = 0;
+				data_origin.y = dataW.max.y - dispW.max.y;
+			}
+			
+			
+			const size_t display_subpixel_size = (frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_8u ?
+																		sizeof(unsigned char) : sizeof(float));
+			
+			char *display_pixel_origin = buf + (disp_origin.y * rowBytes) + (disp_origin.x * display_subpixel_size * 4);
+			
+			char *data_pixel_origin = dataW_origin + (data_origin.y * dataW_rowbytes) + (data_origin.x * sizeof(float) * 4);
+			
+			int copy_width = min(dispW.max.x, dataW.max.x) - max(dispW.min.x, dataW.min.x) + 1;
+			int copy_height = min(dispW.max.y, dataW.max.y) - max(dispW.min.y, dataW.min.y) + 1;
+			
+			
+			TaskGroup taskGroup;
+			
+			if(frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_8u)
+			{
+				// When converting to 8-bit, we also have to change the color space to video
+				// unless we were interpreting the EXRs as video already (Bypass linear convertsion)
+				const bool lin2vid = !bypassConversion;
+			
+				for(int y=0; y < copy_height; y++)
+				{
+					ThreadPool::addGlobalTask(new CopyPPixRowTask<unsigned char>(&taskGroup,
+														data_pixel_origin, dataW_rowbytes,
+														display_pixel_origin, rowBytes, lin2vid,
+														copy_width, y) );
+				}
+			}
+			else
+			{
+				for(int y=0; y < copy_height; y++)
+				{
+					ThreadPool::addGlobalTask(new CopyPPixRowTask<float>(&taskGroup,
+														data_pixel_origin, dataW_rowbytes,
+														display_pixel_origin, rowBytes, false,
+														copy_width, y) );
+				}
+			}
+		}
 	}
 	catch(...)
 	{
