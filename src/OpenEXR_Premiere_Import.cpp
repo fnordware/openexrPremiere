@@ -147,12 +147,9 @@ SDKInit(
 		
 		in.setBits(i);
 		
-		if(in < 0.f)
-			in = -in;
-		
 		// Premiere's linear to Rec709 conversion
 		// Oddly, not quite 1/2.2;
-		lin2vid_lut[i] = pow(in, 0.45f);
+		lin2vid_lut[i] = (in < 0.f ? -pow(-in, 0.45f) : pow(in, 0.45f));
 	}
 	
 	
