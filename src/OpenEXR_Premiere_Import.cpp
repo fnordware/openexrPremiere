@@ -40,8 +40,6 @@ static const csSDK_int32 OpenEXR_ID = 'oEXR';
 
 extern unsigned int gNumCPUs;
 
-static half *lin2vid_lut = NULL;
-
 
 typedef struct
 {	
@@ -54,6 +52,7 @@ typedef struct
 	PrSDKPPixCacheSuite		*PPixCacheSuite;
 	PrSDKPPixSuite			*PPixSuite;
 	PrSDKTimeSuite			*TimeSuite;
+	PrSDKImageProcessingSuite *ImageProcessingSuite;
 } ImporterLocalRec8, *ImporterLocalRec8Ptr, **ImporterLocalRec8H;
 
 
@@ -136,23 +135,6 @@ SDKInit(
 	}
 	
 	
-	// set up lin2vid LUT
-	const int lut_size = (1L << 16);
-	
-	lin2vid_lut = new half[lut_size];
-	
-	for(int i = 0; i < lut_size; i++)
-	{
-		half in;
-		
-		in.setBits(i);
-		
-		// Premiere's linear to Rec709 conversion
-		// Oddly, not quite 1/2.2;
-		lin2vid_lut[i] = (in < 0.f ? -pow(-in, 0.45f) : pow(in, 0.45f));
-	}
-	
-	
 	return malNoError;
 }
 
@@ -162,8 +144,6 @@ SDKShutdown()
 {
 	if( supportsThreads() )
 		setGlobalThreadCount(0);
-	
-	delete [] lin2vid_lut;
 	
 	return malNoError;
 }
@@ -396,6 +376,7 @@ SDKCloseFile(
 		ldataP->BasicSuite->ReleaseSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion);
 		ldataP->BasicSuite->ReleaseSuite(kPrSDKPPixSuite, kPrSDKPPixSuiteVersion);
 		ldataP->BasicSuite->ReleaseSuite(kPrSDKTimeSuite, kPrSDKTimeSuiteVersion);
+		ldataP->BasicSuite->ReleaseSuite(kPrSDKImageProcessingSuite, kPrSDKImageProcessingSuiteVersion);
 		stdParms->piSuites->memFuncs->disposeHandle(reinterpret_cast<char**>(ldataH));
 	}
 
@@ -884,6 +865,7 @@ SDKGetInfo8(
 		ldataP->BasicSuite->AcquireSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion, (const void**)&ldataP->PPixCacheSuite);
 		ldataP->BasicSuite->AcquireSuite(kPrSDKPPixSuite, kPrSDKPPixSuiteVersion, (const void**)&ldataP->PPixSuite);
 		ldataP->BasicSuite->AcquireSuite(kPrSDKTimeSuite, kPrSDKTimeSuiteVersion, (const void**)&ldataP->TimeSuite);
+		ldataP->BasicSuite->AcquireSuite(kPrSDKImageProcessingSuite, kPrSDKImageProcessingSuiteVersion, (const void**)&ldataP->ImageProcessingSuite);
 	}
 
 
@@ -1220,123 +1202,6 @@ ConvertRgbaRowTask::execute()
 }
 
 
-template <typename T>
-class CopyPPixRowTask : public Task
-{
-  public:
-	CopyPPixRowTask(TaskGroup *group,
-					const char *input_origin, RowbyteType input_rowbytes,
-					char *output_origin, RowbyteType output_rowbytes, bool lin2vid,
-					int width, int row);
-	virtual ~CopyPPixRowTask() {}
-	
-	virtual void execute();
-	
-	static inline T convert(const float &val);
-
-  private:
-	const float *_input_row;
-	T *_output_row;
-	const bool _lin2vid;
-	const int _width;
-};
-
-
-template <typename T>
-CopyPPixRowTask<T>::CopyPPixRowTask(TaskGroup *group,
-									const char *input_origin, RowbyteType input_rowbytes,
-									char *output_origin, RowbyteType output_rowbytes, bool lin2vid,
-									int width, int row) :
-	Task(group),
-	_lin2vid(lin2vid),
-	_width(width)
-{
-	_input_row = (float *)(input_origin + (input_rowbytes * row));
-	_output_row = (T *)(output_origin + (output_rowbytes * row));
-}
-
-
-template <typename T>
-void
-CopyPPixRowTask<T>::execute()
-{
-	const float *in = _input_row;
-	T *out = _output_row;
-	
-	if(_lin2vid)
-	{
-		assert(sizeof(T) == sizeof(unsigned char)); // i.e. only doing this for 8-bit
-		assert(lin2vid_lut != NULL);
-	
-		for(int x=0; x < _width; x++)
-		{
-			// When performing a color adjustment like lin2vid, you must do it
-			// to un-premultiplied pixels.  EXR comes in premultiplied so we convert
-			// to un-, do the transformation, then convert back to premultipled.
-			
-			half b = *in++;
-			half g = *in++;
-			half r = *in++;
-			const float a = *in++;
-			
-			// un-premultiply
-			if(a < 1.0f && a > 0.0f)
-			{
-				b /= a;
-				g /= a;
-				r /= a;
-			}
-			
-			b = lin2vid_lut[b.bits()];
-			g = lin2vid_lut[g.bits()];
-			r = lin2vid_lut[r.bits()];
-			
-			// re-premultiply
-			if(a < 1.0f && a > 0.0f)
-			{
-				b *= a;
-				g *= a;
-				r *= a;
-			}
-			
-			*out++ = convert(b);
-			*out++ = convert(g);
-			*out++ = convert(r);
-			*out++ = convert(a);
-		}
-	}
-	else
-	{
-		for(int x=0; x < _width; x++)
-		{
-			// BGRA
-			*out++ = convert(*in++);
-			*out++ = convert(*in++);
-			*out++ = convert(*in++);
-			*out++ = convert(*in++);
-		}
-	}
-}
-
-
-template <>
-inline float
-CopyPPixRowTask<float>::convert(const float &val)
-{
-	return val;
-}
-
-
-template <>
-inline unsigned char
-CopyPPixRowTask<unsigned char>::convert(const float &val)
-{
-	const float clamped = (val > 1.0f ? 1.0f : (val < 0.0f ? 0.f : val));
-	
-	return (clamped * 255.f + 0.5f);
-}
-
-
 static prMALError 
 SDKGetSourceVideo(
 	imStdParms			*stdparms, 
@@ -1464,12 +1329,10 @@ SDKGetSourceVideo(
 		
 		char *dataW_origin = buf;
 		RowbyteType dataW_rowbytes = rowBytes;
-		csSDK_int32 dataW_width = frameFormat.inFrameWidth;
-		csSDK_int32 dataW_height = frameFormat.inFrameHeight;
 		
+		const csSDK_int32 dataW_width = (dataW.max.x - dataW.min.x + 1);
+		const csSDK_int32 dataW_height = (dataW.max.y - dataW.min.y + 1);
 		
-		dataW_width = dataW.max.x - dataW.min.x + 1;
-		dataW_height = dataW.max.y - dataW.min.y + 1;
 		
 		// if dataWindow is completely inside displayWindow, we can use the
 		// existing PPixHand, otherwise have to create a new one.
@@ -1605,32 +1468,13 @@ SDKGetSourceVideo(
 			int copy_height = min(dispW.max.y, dataW.max.y) - max(dispW.min.y, dataW.min.y) + 1;
 			
 			
-			TaskGroup taskGroup;
-			
-			if(frameFormat.inPixelFormat == PrPixelFormat_BGRA_4444_8u)
-			{
-				// When converting to 8-bit, we also have to change the color space to video
-				// unless we were interpreting the EXRs as video already (Bypass linear convertsion)
-				const bool lin2vid = !bypassConversion;
-			
-				for(int y=0; y < copy_height; y++)
-				{
-					ThreadPool::addGlobalTask(new CopyPPixRowTask<unsigned char>(&taskGroup,
-														data_pixel_origin, dataW_rowbytes,
-														display_pixel_origin, rowBytes, lin2vid,
-														copy_width, y) );
-				}
-			}
-			else
-			{
-				for(int y=0; y < copy_height; y++)
-				{
-					ThreadPool::addGlobalTask(new CopyPPixRowTask<float>(&taskGroup,
-														data_pixel_origin, dataW_rowbytes,
-														display_pixel_origin, rowBytes, false,
-														copy_width, y) );
-				}
-			}
+			ldataP->ImageProcessingSuite->ScaleConvert(float_format,
+														copy_width, copy_height, dataW_rowbytes, prFieldsNone,
+														data_pixel_origin,
+														frameFormat.inPixelFormat,
+														copy_width, copy_height, rowBytes, prFieldsNone,
+														display_pixel_origin,
+														kPrRenderQuality_High);
 		}
 	}
 	catch(...)

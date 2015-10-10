@@ -12,6 +12,7 @@
 #include	"PrSDKPPixCacheSuite.h"
 #include	"PrSDKWindowSuite.h"
 #include	"PrSDKAppInfoSuite.h"
+#include	"PrSDKImageProcessingSuite.h"
 #ifdef		PRMAC_ENV
 #include	<wchar.h>
 #endif
