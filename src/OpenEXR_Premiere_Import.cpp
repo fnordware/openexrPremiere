@@ -549,15 +549,12 @@ InitPrefs(
 		}
 		else
 		{
-			strcpy(prefs->red, "R");
-			strcpy(prefs->green, "G");
-			strcpy(prefs->blue, "B");
+			strcpy(prefs->red, (channels.findChannel("R") ? "R" : "(none)"));
+			strcpy(prefs->green, (channels.findChannel("G") ? "G" : "(none)"));
+			strcpy(prefs->blue, (channels.findChannel("B") ? "B" : "(none)"));
 		}
 		
-		if( channels.findChannel("A") )
-			strcpy(prefs->alpha, "A");
-		else
-			strcpy(prefs->alpha, "(none)");
+		strcpy(prefs->alpha, (channels.findChannel("A") ? "A" : "(none)"));
 		
 		prefs->bypassConversion = false;
 		
@@ -616,82 +613,82 @@ SDKGetPrefs8(
 					strcpy(prefs->blue, "B");
 					strcpy(prefs->alpha, "A");
 				}
+				
+				assert(0 == strncmp(prefs->magic, "oEXR", 4));
+				assert(prefs->version == 1);
+			
+				auto_ptr<Imf::IStream> instream;
+				
+				if(fileInfo8->fileref != imInvalidHandleValue)
+				{
+					instream.reset(new IStreamPr(fileInfo8->fileref));
+				}
 				else
 				{
-					assert(0 == strncmp(prefs->magic, "oEXR", 4));
-					assert(prefs->version == 1);
-				
-					auto_ptr<Imf::IStream> instream;
+					string path = UTF16toUTF8((const utf16_char *)fileInfo8->filepath);
 					
-					if(fileInfo8->fileref != imInvalidHandleValue)
-					{
-						instream.reset(new IStreamPr(fileInfo8->fileref));
-					}
-					else
-					{
-						string path = UTF16toUTF8((const utf16_char *)fileInfo8->filepath);
-						
-						instream.reset(new StdIFStream(path.c_str()));
-					}
-					
-					if(instream.get() == NULL)
-						throw Iex::NullExc("instream is NULL");
-					
-					
-					HybridInputFile in(*instream);
-					
-					if(prefs->file_init == FALSE)
-					{
-						InitPrefs(in, prefs);
-					}
-					
-					
-					const ChannelList &channels = in.channels();
-					
-					ChannelsList channels_list;
-					
-					for(ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i)
-					{
-						if(i.channel().type != Imf::UINT)
-							channels_list.push_back( i.name() );
-					}
-					
-					
-					string	red = prefs->red,
-							green = prefs->green,
-							blue = prefs->blue,
-							alpha = prefs->alpha;
-							
-					bool bypassConversion = prefs->bypassConversion;
-					
-					bool clicked_ok = ProEXR_Channels(channels_list, red, green, blue, alpha, bypassConversion, plugHndl, mwnd);
-					
-					
-					if(clicked_ok)
-					{
-						strncpy(prefs->red, red.c_str(), Name::MAX_LENGTH);
-						strncpy(prefs->green, green.c_str(), Name::MAX_LENGTH);
-						strncpy(prefs->blue, blue.c_str(), Name::MAX_LENGTH);
-						strncpy(prefs->alpha, alpha.c_str(), Name::MAX_LENGTH);
-						
-						prefs->bypassConversion = bypassConversion;
-					
-					#if kPrSDKPPixCacheSuiteVersion >= 4
-						PrSDKPPixCacheSuite *PPixCacheSuite = NULL;
-						stdParms->piSuites->utilFuncs->getSPBasicSuite()->AcquireSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion, (const void**)&PPixCacheSuite);
-						
-						if(PPixCacheSuite)
-						{
-							PPixCacheSuite->ExpireAllPPixesFromCache();
-							stdParms->piSuites->utilFuncs->getSPBasicSuite()->ReleaseSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion);
-						}
-					#endif
-			
-						result = imNoErr;
-					}
-					else
-						result = imCancel;
+					instream.reset(new StdIFStream(path.c_str()));
 				}
+				
+				if(instream.get() == NULL)
+					throw Iex::NullExc("instream is NULL");
+				
+				
+				HybridInputFile in(*instream);
+				
+				if(prefs->file_init == FALSE)
+				{
+					assert(prefsRec->firstTime);
+				
+					InitPrefs(in, prefs);
+				}
+				
+				
+				const ChannelList &channels = in.channels();
+				
+				ChannelsList channels_list;
+				
+				for(ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i)
+				{
+					if(i.channel().type != Imf::UINT)
+						channels_list.push_back( i.name() );
+				}
+				
+				
+				string	red = prefs->red,
+						green = prefs->green,
+						blue = prefs->blue,
+						alpha = prefs->alpha;
+						
+				bool bypassConversion = prefs->bypassConversion;
+				
+				bool clicked_ok = ProEXR_Channels(channels_list, red, green, blue, alpha, bypassConversion, plugHndl, mwnd);
+				
+				
+				if(clicked_ok)
+				{
+					strncpy(prefs->red, red.c_str(), Name::MAX_LENGTH);
+					strncpy(prefs->green, green.c_str(), Name::MAX_LENGTH);
+					strncpy(prefs->blue, blue.c_str(), Name::MAX_LENGTH);
+					strncpy(prefs->alpha, alpha.c_str(), Name::MAX_LENGTH);
+					
+					prefs->bypassConversion = bypassConversion;
+				
+				#if kPrSDKPPixCacheSuiteVersion >= 4
+					PrSDKPPixCacheSuite *PPixCacheSuite = NULL;
+					stdParms->piSuites->utilFuncs->getSPBasicSuite()->AcquireSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion, (const void**)&PPixCacheSuite);
+					
+					if(PPixCacheSuite)
+					{
+						PPixCacheSuite->ExpireAllPPixesFromCache();
+						stdParms->piSuites->utilFuncs->getSPBasicSuite()->ReleaseSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion);
+					}
+				#endif
+		
+					result = imNoErr;
+				}
+				else
+					result = imCancel;
 			}
 			catch(...)
 			{
