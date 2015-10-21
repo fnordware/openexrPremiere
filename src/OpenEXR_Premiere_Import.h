@@ -9,9 +9,13 @@
 #include	"PrSDKImport.h"
 #include	"PrSDKClipRenderSuite.h"
 #include	"PrSDKPPixCreatorSuite.h"
-#include	"PrSDKPPixCacheSuite.h"
 #include	"PrSDKWindowSuite.h"
 #include	"PrSDKAppInfoSuite.h"
+
+#ifdef PREMIERE_CACHE_NOT_CLEARING
+#include	"PrSDKPPixCacheSuite.h"
+#endif
+
 #ifdef		PRMAC_ENV
 #include	<wchar.h>
 #endif

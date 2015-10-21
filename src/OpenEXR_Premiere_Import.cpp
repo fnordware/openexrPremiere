@@ -49,7 +49,9 @@ typedef struct
 	PlugMemoryFuncsPtr		memFuncs;
 	SPBasicSuite			*BasicSuite;
 	PrSDKPPixCreatorSuite	*PPixCreatorSuite;
+#ifdef PREMIERE_CACHE_NOT_CLEARING
 	PrSDKPPixCacheSuite		*PPixCacheSuite;
+#endif
 	PrSDKPPixSuite			*PPixSuite;
 	PrSDKTimeSuite			*TimeSuite;
 } ImporterLocalRec8, *ImporterLocalRec8Ptr, **ImporterLocalRec8H;
@@ -372,7 +374,9 @@ SDKCloseFile(
 	if (ldataH && ldataP && ldataP->BasicSuite)
 	{
 		ldataP->BasicSuite->ReleaseSuite(kPrSDKPPixCreatorSuite, kPrSDKPPixCreatorSuiteVersion);
+	#ifdef PREMIERE_CACHE_NOT_CLEARING
 		ldataP->BasicSuite->ReleaseSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion);
+	#endif
 		ldataP->BasicSuite->ReleaseSuite(kPrSDKPPixSuite, kPrSDKPPixSuiteVersion);
 		ldataP->BasicSuite->ReleaseSuite(kPrSDKTimeSuite, kPrSDKTimeSuiteVersion);
 		stdParms->piSuites->memFuncs->disposeHandle(reinterpret_cast<char**>(ldataH));
@@ -524,6 +528,22 @@ SDKDeleteFile8(
 
 
 static void
+InitPrefs(ImporterPrefs *prefs)
+{
+	memset(prefs, 0, sizeof(ImporterPrefs));
+
+	strcpy(prefs->magic, "oEXR");
+	prefs->version = 1;
+	prefs->file_init = FALSE;
+
+	strcpy(prefs->red, "R");
+	strcpy(prefs->green, "G");
+	strcpy(prefs->blue, "B");
+	strcpy(prefs->alpha, "A");
+}
+
+
+static void
 InitPrefs(
 	const HybridInputFile &in,
 	ImporterPrefs *prefs)
@@ -571,12 +591,22 @@ SDKGetPrefs8(
 {
 	prMALError result = malNoError;
 	
+	// For a single frame (not a sequence) Premiere will call imGetPrefs8 twice as described
+	// in the SDK guide, right as the file is imported.  We don't want a dialog to pop up right then
+	// so we don't actually pop the dialog the second time, when prefsRec->firstTime == TRUE.
+	//
+	// For an image sequence imGetPrefs8 is not called immediately, so we have to create the prefs
+	// in imGetInfo8.  See that call for more information.  imGetPrefs8 gets called when the user
+	// does a Source Settings.
+	
 	if(prefsRec->prefsLength == 0)
 	{
 		prefsRec->prefsLength = sizeof(ImporterPrefs);
 	}
 	else
 	{
+		assert(prefsRec->prefsLength == sizeof(ImporterPrefs));
+	
 	#ifdef PRMAC_ENV
 		const char *plugHndl = "com.adobe.PremierePro.OpenEXR";
 		const void *mwnd = NULL;
@@ -602,93 +632,95 @@ SDKGetPrefs8(
 			{
 				if(prefsRec->firstTime)
 				{
-					memset(prefs, 0, sizeof(ImporterPrefs));
-					
-					strcpy(prefs->magic, "oEXR");
-					prefs->version = 1;
-					prefs->file_init = FALSE;
-					
-					strcpy(prefs->red, "R");
-					strcpy(prefs->green, "G");
-					strcpy(prefs->blue, "B");
-					strcpy(prefs->alpha, "A");
-				}
+					assert(prefs->file_init == FALSE);
 				
-				assert(0 == strncmp(prefs->magic, "oEXR", 4));
-				assert(prefs->version == 1);
-			
-				auto_ptr<Imf::IStream> instream;
-				
-				if(fileInfo8->fileref != imInvalidHandleValue)
-				{
-					instream.reset(new IStreamPr(fileInfo8->fileref));
+					InitPrefs(prefs);
 				}
 				else
 				{
-					string path = UTF16toUTF8((const utf16_char *)fileInfo8->filepath);
+					assert(prefs->file_init == TRUE);
+				
+					assert(0 == strncmp(prefs->magic, "oEXR", 4));
+					assert(prefs->version == 1);
+				
+					auto_ptr<Imf::IStream> instream;
 					
-					instream.reset(new StdIFStream(path.c_str()));
-				}
-				
-				if(instream.get() == NULL)
-					throw Iex::NullExc("instream is NULL");
-				
-				
-				HybridInputFile in(*instream);
-				
-				if(prefs->file_init == FALSE)
-				{
-					assert(prefsRec->firstTime);
-				
-					InitPrefs(in, prefs);
-				}
-				
-				
-				const ChannelList &channels = in.channels();
-				
-				ChannelsList channels_list;
-				
-				for(ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i)
-				{
-					if(i.channel().type != Imf::UINT)
-						channels_list.push_back( i.name() );
-				}
-				
-				
-				string	red = prefs->red,
-						green = prefs->green,
-						blue = prefs->blue,
-						alpha = prefs->alpha;
-						
-				bool bypassConversion = prefs->bypassConversion;
-				
-				bool clicked_ok = ProEXR_Channels(channels_list, red, green, blue, alpha, bypassConversion, plugHndl, mwnd);
-				
-				
-				if(clicked_ok)
-				{
-					strncpy(prefs->red, red.c_str(), Name::MAX_LENGTH);
-					strncpy(prefs->green, green.c_str(), Name::MAX_LENGTH);
-					strncpy(prefs->blue, blue.c_str(), Name::MAX_LENGTH);
-					strncpy(prefs->alpha, alpha.c_str(), Name::MAX_LENGTH);
-					
-					prefs->bypassConversion = bypassConversion;
-				
-				#if kPrSDKPPixCacheSuiteVersion >= 4
-					PrSDKPPixCacheSuite *PPixCacheSuite = NULL;
-					stdParms->piSuites->utilFuncs->getSPBasicSuite()->AcquireSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion, (const void**)&PPixCacheSuite);
-					
-					if(PPixCacheSuite)
+					if(fileInfo8->fileref != imInvalidHandleValue)
 					{
-						PPixCacheSuite->ExpireAllPPixesFromCache();
-						stdParms->piSuites->utilFuncs->getSPBasicSuite()->ReleaseSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion);
+						instream.reset(new IStreamPr(fileInfo8->fileref));
 					}
-				#endif
-		
-					result = imNoErr;
+					else
+					{
+						string path = UTF16toUTF8((const utf16_char *)fileInfo8->filepath);
+						
+						instream.reset(new StdIFStream(path.c_str()));
+					}
+					
+					if(instream.get() == NULL)
+						throw Iex::NullExc("instream is NULL");
+					
+					
+					HybridInputFile in(*instream);
+					
+					assert(prefs->file_init == TRUE); // file_init should always happen in imGetInfo8...
+					
+					if(prefs->file_init == FALSE) // ...but just in case
+					{
+						assert(prefsRec->firstTime);
+					
+						InitPrefs(in, prefs);
+					}
+					
+					
+					const ChannelList &channels = in.channels();
+					
+					ChannelsList channels_list;
+					
+					for(ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i)
+					{
+						if(i.channel().type != Imf::UINT)
+							channels_list.push_back( i.name() );
+					}
+					
+					
+					string	red = prefs->red,
+							green = prefs->green,
+							blue = prefs->blue,
+							alpha = prefs->alpha;
+							
+					bool bypassConversion = prefs->bypassConversion;
+					
+					bool clicked_ok = ProEXR_Channels(channels_list, red, green, blue, alpha, bypassConversion, plugHndl, mwnd);
+					
+					
+					if(clicked_ok)
+					{
+						strncpy(prefs->red, red.c_str(), Name::MAX_LENGTH);
+						strncpy(prefs->green, green.c_str(), Name::MAX_LENGTH);
+						strncpy(prefs->blue, blue.c_str(), Name::MAX_LENGTH);
+						strncpy(prefs->alpha, alpha.c_str(), Name::MAX_LENGTH);
+						
+						prefs->bypassConversion = bypassConversion;
+					
+					#ifdef PREMIERE_CACHE_NOT_CLEARING
+						// Was previously having problems with prefs changing and the cache not clearing
+					#if kPrSDKPPixCacheSuiteVersion >= 4
+						PrSDKPPixCacheSuite *PPixCacheSuite = NULL;
+						stdParms->piSuites->utilFuncs->getSPBasicSuite()->AcquireSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion, (const void**)&PPixCacheSuite);
+						
+						if(PPixCacheSuite)
+						{
+							PPixCacheSuite->ExpireAllPPixesFromCache();
+							stdParms->piSuites->utilFuncs->getSPBasicSuite()->ReleaseSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion);
+						}
+					#endif
+					#endif // PREMIERE_CACHE_NOT_CLEARING
+			
+						result = imNoErr;
+					}
+					else
+						result = imCancel;
 				}
-				else
-					result = imCancel;
 			}
 			catch(...)
 			{
@@ -788,6 +820,8 @@ SDKAnalysis(
 				break;
 		}
 		
+		assert(prefs != NULL); // should have this under control now
+		
 		if(prefs != NULL && prefs->bypassConversion)
 		{
 			info += ", Bypass linear conversion";
@@ -821,8 +855,7 @@ SDKGetInfo8(
 {
 	prMALError					result				= malNoError;
 	ImporterLocalRec8H			ldataH				= NULL;
-	ImporterPrefs				*prefs				= reinterpret_cast<ImporterPrefs *>(SDKFileInfo8->prefs);
-
+	
 	// Get a handle to our private data.  If it doesn't exist, allocate one
 	// so we can use it to store our file instance info
 	if(SDKFileInfo8->privatedata)
@@ -846,7 +879,9 @@ SDKGetInfo8(
 	if(ldataP->BasicSuite)
 	{
 		ldataP->BasicSuite->AcquireSuite(kPrSDKPPixCreatorSuite, kPrSDKPPixCreatorSuiteVersion, (const void**)&ldataP->PPixCreatorSuite);
+	#ifdef PREMIERE_CACHE_NOT_CLEARING
 		ldataP->BasicSuite->AcquireSuite(kPrSDKPPixCacheSuite, kPrSDKPPixCacheSuiteVersion, (const void**)&ldataP->PPixCacheSuite);
+	#endif
 		ldataP->BasicSuite->AcquireSuite(kPrSDKPPixSuite, kPrSDKPPixSuiteVersion, (const void**)&ldataP->PPixSuite);
 		ldataP->BasicSuite->AcquireSuite(kPrSDKTimeSuite, kPrSDKTimeSuiteVersion, (const void**)&ldataP->TimeSuite);
 	}
@@ -924,6 +959,24 @@ SDKGetInfo8(
 		SDKFileInfo8->accessModes = kRandomAccessImport;
 		SDKFileInfo8->hasDataRate = kPrFalse;
 		
+		
+		// For a still image (not a sequence), imGetPrefs8 will have already been called twice before
+		// we get here (imGetInfo8 ).  This does not happen for a sequence, so we have to create and
+		// initialize the memory here ourselves.  imGetPrefs8 will be called if the user goes to
+		// Source Settings.
+		
+		// Oddly, Premiere will call imGetInfo8 over and over again for a sequence, each time with
+		// SDKFileInfo8->prefs == NULL.
+		
+		if(SDKFileInfo8->prefs == NULL)
+		{
+			SDKFileInfo8->prefs = stdParms->piSuites->memFuncs->newPtr(sizeof(ImporterPrefs));
+			
+			InitPrefs((ImporterPrefs *)SDKFileInfo8->prefs);
+		}
+		
+		
+		ImporterPrefs *prefs = reinterpret_cast<ImporterPrefs *>(SDKFileInfo8->prefs);
 		
 		if(prefs && prefs->file_init == FALSE)
 		{
@@ -1256,7 +1309,9 @@ SDKGetSourceVideo(
 		const char *y = "Y", *ry = "RY", *by = "BY";
 		
 		bool bypassConversion = false;
-				
+		
+		assert(prefs != NULL); // should have been created by imGetPrefs8 or imGetInfo8
+		
 		if(prefs && prefs->file_init)
 		{
 			assert(0 == strncmp(prefs->magic, "oEXR", 4));
