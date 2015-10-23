@@ -1347,8 +1347,16 @@ SDKGetSourceVideo(
 		
 		frameFormat.inPixelFormat = (bypassConversion ? PrPixelFormat_BGRA_4444_32f : PrPixelFormat_BGRA_4444_32f_Linear);
 				
+		const Box2i &dispW = in.displayWindow();
+		
+		const int width = dispW.max.x - dispW.min.x + 1;
+		const int height = dispW.max.y - dispW.min.y + 1;
+		
+		assert(frameFormat.inFrameWidth == width);
+		assert(frameFormat.inFrameHeight == height);
+		
 		prRect theRect;
-		prSetRect(&theRect, 0, 0, frameFormat.inFrameWidth, frameFormat.inFrameHeight);
+		prSetRect(&theRect, 0, 0, width, height);
 		
 		RowbyteType rowBytes = 0;
 		char *buf = NULL;
@@ -1359,18 +1367,13 @@ SDKGetSourceVideo(
 		
 
 
-		const Box2i &dispW = in.displayWindow();
-		const Box2i &dataW = in.dataWindow();
-		
-		assert(frameFormat.inFrameWidth == dispW.max.x - dispW.min.x + 1);
-		assert(frameFormat.inFrameHeight == dispW.max.y - dispW.min.y + 1);
-		
-		
 		char *dataW_origin = buf;
 		RowbyteType dataW_rowbytes = rowBytes;
-		csSDK_int32 dataW_width = frameFormat.inFrameWidth;
-		csSDK_int32 dataW_height = frameFormat.inFrameHeight;
+		csSDK_int32 dataW_width = width;
+		csSDK_int32 dataW_height = height;
 		
+		
+		const Box2i &dataW = in.dataWindow();
 		
 		if((dataW != dispW) || (in.parts() > 1))
 		{
@@ -1384,10 +1387,10 @@ SDKGetSourceVideo(
 			{
 				TaskGroup taskGroup;
 				
-				for(int y=0; y < frameFormat.inFrameHeight; y++)
+				for(int y=0; y < height; y++)
 				{
 					ThreadPool::addGlobalTask(new FillRowTask(&taskGroup, buf, rowBytes, 0.f,
-																frameFormat.inFrameWidth * 4, y) );
+																width * 4, y) );
 				}
 				
 				// if the dataWindow does not actually intersect the displayWindow,
@@ -1529,8 +1532,8 @@ SDKGetSourceVideo(
 				
 				char *data_pixel_origin = dataW_origin + (data_origin.y * dataW_rowbytes) + (data_origin.x * sizeof(float) * 4);
 				
-				int copy_width = min(dispW.max.x, dataW.max.x) - max(dispW.min.x, dataW.min.x) + 1;
-				int copy_height = min(dispW.max.y, dataW.max.y) - max(dispW.min.y, dataW.min.y) + 1;
+				const int copy_width = min(dispW.max.x, dataW.max.x) - max(dispW.min.x, dataW.min.x) + 1;
+				const int copy_height = min(dispW.max.y, dataW.max.y) - max(dispW.min.y, dataW.min.y) + 1;
 				
 				
 				TaskGroup taskGroup;
