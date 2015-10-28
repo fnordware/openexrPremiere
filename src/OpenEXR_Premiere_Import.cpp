@@ -1139,6 +1139,8 @@ static void FixSubsampling(const FrameBuffer &framebuffer, const Box2i &dw)
 					{
 						*((unsigned int *)pix_expanded) = *((unsigned int *)pix_subsampled);
 					}
+					else
+						assert(false);
 					
 					if(x % slice.xSampling == 0)
 						pix_subsampled -= slice.xStride;
@@ -1151,6 +1153,55 @@ static void FixSubsampling(const FrameBuffer &framebuffer, const Box2i &dw)
 				
 				row_expanded -= slice.yStride;
 			}
+		}
+	}
+}
+
+
+typedef struct DupInfo {
+	Slice src;
+	Slice dst;
+	
+	DupInfo(const Slice &s, const Slice &d) : src(s), dst(d) {}
+} DupInfo;
+
+typedef std::vector<DupInfo> DupSet;
+
+static void FixDuplicates(const DupSet &dupSet, const Box2i &dw)
+{
+	for(DupSet::const_iterator i = dupSet.begin(); i != dupSet.end(); ++i)
+	{
+		const DupInfo &dupInfo = *i;
+		
+		if(dupInfo.src.type != dupInfo.dst.type)
+			continue;
+	
+		char *src_row = (char *)dupInfo.src.base + (dupInfo.src.yStride * dw.min.y) + (dupInfo.src.xStride * dw.min.x);
+		char *dst_row = (char *)dupInfo.dst.base + (dupInfo.dst.yStride * dw.min.y) + (dupInfo.dst.xStride * dw.min.x);
+		
+		for(int y = dw.min.y; y <= dw.max.y; y++)
+		{
+			if(dupInfo.src.type == Imf::FLOAT)
+			{
+				float *src = (float *)src_row;
+				float *dst = (float *)dst_row;
+				
+				const int src_step = dupInfo.src.xStride / sizeof(float);
+				const int dst_step = dupInfo.dst.xStride / sizeof(float);
+				
+				for(int x = dw.min.x; x <= dw.max.x; x++)
+				{
+					*dst = *src;
+					
+					src += src_step;
+					dst += dst_step;
+				}
+			}
+			else
+				assert(false);
+		
+			src_row += dupInfo.src.yStride;
+			dst_row += dupInfo.dst.yStride;
 		}
 	}
 }
@@ -1465,12 +1516,12 @@ SDKGetSourceVideo(
 				char *exr_BGRA_origin = (char *)dataW_origin - (sizeof(float) * 4 * dataW.min.x) + (dataW_rowbytes * dataW.max.y);
 				
 				
+				DupSet dupSet;
+				
 				const char *chan[4] = { blue, green, red, alpha };
 				
 				for(int c=0; c < 4; c++)
 				{
-					float fill = (c == 3 ? 1.f : 0.f);
-				
 					int xSampling = 1,
 						ySampling = 1;
 					
@@ -1482,12 +1533,28 @@ SDKGetSourceVideo(
 						ySampling = channel->ySampling;
 					}
 					
-					frameBuffer.insert(chan[c],
-										Slice(Imf::FLOAT,
-												exr_BGRA_origin + (sizeof(float) * c),
-												sizeof(float) * 4,
-												-dataW_rowbytes,
-												xSampling, ySampling, fill) );
+					const float fill = (c == 3 ? 1.f : 0.f);
+				
+					Slice slice(Imf::FLOAT,
+								exr_BGRA_origin + (sizeof(float) * c),
+								sizeof(float) * 4,
+								-dataW_rowbytes,
+								xSampling, ySampling, fill);
+					
+					const Slice *dup_slice = frameBuffer.findSlice(chan[c]);
+					
+					if(dup_slice == NULL)
+					{
+						frameBuffer.insert(chan[c], slice);
+					}
+					else
+					{
+						// The OpenEXR FrameBuffer can only hold one slice per channel name
+						// because it uses a std::map.  If the user uses the same channel name
+						// more than once, we have to duplicate it ourselves.
+						
+						dupSet.push_back( DupInfo(*dup_slice, slice) );
+					}
 				}
 	
 
@@ -1495,7 +1562,10 @@ SDKGetSourceVideo(
 				
 				in.readPixels(dataW.min.y, dataW.max.y);
 				
+				
 				FixSubsampling(frameBuffer, dataW);
+				
+				FixDuplicates(dupSet, dataW);
 			}
 			
 			
