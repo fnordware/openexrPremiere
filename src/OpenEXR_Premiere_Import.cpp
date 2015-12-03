@@ -961,7 +961,7 @@ SDKGetInfo8(
 		
 		
 		// For a still image (not a sequence), imGetPrefs8 will have already been called twice before
-		// we get here (imGetInfo8 ).  This does not happen for a sequence, so we have to create and
+		// we get here (imGetInfo8).  This does not happen for a sequence, so we have to create and
 		// initialize the memory here ourselves.  imGetPrefs8 will be called if the user goes to
 		// Source Settings.
 		
@@ -974,6 +974,8 @@ SDKGetInfo8(
 			
 			InitPrefs((ImporterPrefs *)SDKFileInfo8->prefs);
 		}
+		
+		assert(stdParms->piSuites->memFuncs->getPtrSize((char *)SDKFileInfo8->prefs) == sizeof(ImporterPrefs));
 		
 		
 		ImporterPrefs *prefs = reinterpret_cast<ImporterPrefs *>(SDKFileInfo8->prefs);
@@ -1391,7 +1393,10 @@ SDKGetSourceVideo(
 		
 		
 		// make the Premiere buffer
-		assert(sourceVideoRec->inFrameFormats != NULL && sourceVideoRec->inNumFrameFormats == 1);
+		if(sourceVideoRec->inFrameFormats == NULL)
+			throw Iex::NullExc("inFrameFormats is NULL");
+		
+		assert(sourceVideoRec->inNumFrameFormats == 1);
 		assert(sourceVideoRec->inFrameFormats[0].inPixelFormat == PrPixelFormat_BGRA_4444_32f_Linear);
 		
 		imFrameFormat frameFormat = sourceVideoRec->inFrameFormats[0];
