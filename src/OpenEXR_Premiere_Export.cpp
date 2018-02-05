@@ -319,11 +319,22 @@ exSDKEndInstance(
 #define EXRCompression		"EXRCompression"
 #define EXRCompressionLevel	"EXRCompressionLevel"
 #define EXRFloat			"EXRfloat"
-#define EXRBypassLinear		"EXRBypassLinear"
+//#define EXRBypassLinear		"EXRBypassLinear"
+#define EXRSourceColorSpace	"EXRSourceColorSpace"
 #define EXRLumiChrom		"EXRlumichrom"
 
 #define ADBEStillSequence	"ADBEStillSequence"
 #define ADBEVideoAlpha		"ADBEVideoAlpha"
+
+
+typedef enum {
+	SOURCECOLORSPACE_LINEAR_ADOBE = 0,
+	SOURCECOLORSPACE_LINEAR_BYPASS,
+	SOURCECOLORSPACE_SRGB,
+	SOURCECOLORSPACE_REC709,
+	SOURCECOLORSPACE_CINEON,
+	SOURCECOLORSPACE_GAMMA22
+} SourceColorSpace;
 
 
 static prMALError
@@ -399,6 +410,7 @@ exSDKQueryOutputSettings(
 
 	return result;
 }
+
 
 static prMALError
 exSDKFileExtension(
@@ -573,6 +585,157 @@ ConvertBgraRowTask<InFormat, OutFormat>::execute()
 }
 
 
+class ConvertColorSpaceToLinearTask : public Task
+{
+  public:
+	ConvertColorSpaceToLinearTask(TaskGroup *group,
+								const float *src_bgra_origin, csSDK_int32 src_rowbytes,
+								float *dest_bgra_origin, csSDK_int32 dest_rowbytes,
+								int width, int row, SourceColorSpace colorSpace);
+	virtual ~ConvertColorSpaceToLinearTask() {}
+	
+	virtual void execute();
+
+  private:
+	const float *_src_row;
+	float *_dest_row;
+	const int _width;
+	const SourceColorSpace _colorSpace;
+	
+	float _logGain;
+	float _logOffset;
+	const int _logRefBlack;
+	const int _logRefWhite;
+	const float _logGamma;
+	
+	typedef struct BRGApixel
+	{
+		float b;
+		float g;
+		float r;
+		float a;
+	} BGRApixel;
+	
+	static inline float sRGB2Linear(const float &in);
+	static inline float Rec7092Linear(const float &in);
+	inline float Cineon2Linear(const float &in);
+	static inline float Gamma222Linear(const float &in);
+};
+
+
+ConvertColorSpaceToLinearTask::ConvertColorSpaceToLinearTask(TaskGroup *group,
+																const float *src_bgra_origin, csSDK_int32 src_rowbytes,
+																float *dest_bgra_origin, csSDK_int32 dest_rowbytes,
+																int width, int row, SourceColorSpace colorSpace) :
+	Task(group),
+	_width(width),
+	_colorSpace(colorSpace),
+	_logRefBlack(95),
+	_logRefWhite(685),
+	_logGamma(1.0)
+{
+	_src_row = (float *)((char *)src_bgra_origin + (src_rowbytes * row));
+	_dest_row = (float *)((char *)dest_bgra_origin + (dest_rowbytes * row));
+	
+	if(colorSpace == SOURCECOLORSPACE_CINEON)
+	{
+		_logGain = 1.0f / (1.0f - pow(pow(10.0f, (_logRefBlack - _logRefWhite) * (0.002f/0.6f) ), 1.0f/_logGamma ) );
+		_logOffset = _logGain - 1.0f;
+	}
+}
+
+
+void
+ConvertColorSpaceToLinearTask::execute()
+{
+	BRGApixel *src_pix = (BRGApixel *)_src_row;
+	BRGApixel *dest_pix = (BRGApixel *)_dest_row;
+	
+	if(_colorSpace == SOURCECOLORSPACE_SRGB)
+	{
+		for(int x=0; x < _width; x++)
+		{
+			dest_pix->b = sRGB2Linear(src_pix->b);
+			dest_pix->g = sRGB2Linear(src_pix->g);
+			dest_pix->r = sRGB2Linear(src_pix->r);
+			dest_pix->a = src_pix->a;
+			
+			src_pix++;
+			dest_pix++;
+		}
+	}
+	else if(_colorSpace == SOURCECOLORSPACE_REC709)
+	{
+		for(int x=0; x < _width; x++)
+		{
+			dest_pix->b = Rec7092Linear(src_pix->b);
+			dest_pix->g = Rec7092Linear(src_pix->g);
+			dest_pix->r = Rec7092Linear(src_pix->r);
+			dest_pix->a = src_pix->a;
+			
+			src_pix++;
+			dest_pix++;
+		}
+	}
+	else if(_colorSpace == SOURCECOLORSPACE_CINEON)
+	{
+		for(int x=0; x < _width; x++)
+		{
+			dest_pix->b = Cineon2Linear(src_pix->b);
+			dest_pix->g = Cineon2Linear(src_pix->g);
+			dest_pix->r = Cineon2Linear(src_pix->r);
+			dest_pix->a = src_pix->a;
+			
+			src_pix++;
+			dest_pix++;
+		}
+	}
+	else if(_colorSpace == SOURCECOLORSPACE_GAMMA22)
+	{
+		for(int x=0; x < _width; x++)
+		{
+			dest_pix->b = Gamma222Linear(src_pix->b);
+			dest_pix->g = Gamma222Linear(src_pix->g);
+			dest_pix->r = Gamma222Linear(src_pix->r);
+			dest_pix->a = src_pix->a;
+			
+			src_pix++;
+			dest_pix++;
+		}
+	}
+}
+
+
+inline float
+ConvertColorSpaceToLinearTask::sRGB2Linear(const float &in)
+{
+	return (in <= 0.04045f ? (in / 12.92f) : powf( (in + 0.055f) / 1.055f, 2.4f));
+}
+
+
+inline float
+ConvertColorSpaceToLinearTask::Rec7092Linear(const float &in)
+{
+	return (in <= 0.081f ? (in / 4.5f) : powf( (in + 0.099f) / 1.099f, 1.0f / 0.45f));
+}
+
+
+inline float
+ConvertColorSpaceToLinearTask::Cineon2Linear(const float &in)
+{
+	const float val = in * 1023.0f;
+			
+	return pow(pow( 10.0f, (val - _logRefWhite) * (0.002f/0.6f) ), 1.0f/_logGamma ) * _logGain - _logOffset;
+}
+
+
+inline float
+ConvertColorSpaceToLinearTask::Gamma222Linear(const float &in)
+{
+	return (in < 0.f ? -powf(-in, 2.2f) : powf(in, 2.2f) );
+}
+
+
 static void
 Premultiply(Rgba &in)
 {
@@ -616,14 +779,19 @@ exSDKExport(
 	paramSuite->GetParamValue(exID, gIdx, ADBEVideoAlpha, &alphaP);
 	
 	
-	exParamValues bypassLinearP;
-	bypassLinearP.value.intValue = kPrFalse;
-	paramSuite->GetParamValue(exID, gIdx, EXRBypassLinear, &bypassLinearP);
+	//exParamValues bypassLinearP;
+	//bypassLinearP.value.intValue = kPrFalse;
+	//paramSuite->GetParamValue(exID, gIdx, EXRBypassLinear, &bypassLinearP);
+	
+	exParamValues sourceColorSpaceP;
+	sourceColorSpaceP.value.intValue = SOURCECOLORSPACE_LINEAR_ADOBE;
+	paramSuite->GetParamValue(exID, gIdx, EXRSourceColorSpace, &sourceColorSpaceP);
+	
 	
 	SequenceRender_ParamsRec renderParms;
-	const PrPixelFormat pixelFormat = (bypassLinearP.value.intValue ?
-										PrPixelFormat_BGRA_4444_32f :
-										PrPixelFormat_BGRA_4444_32f_Linear);
+	const PrPixelFormat pixelFormat = (sourceColorSpaceP.value.intValue == SOURCECOLORSPACE_LINEAR_ADOBE ?
+										PrPixelFormat_BGRA_4444_32f_Linear :
+										PrPixelFormat_BGRA_4444_32f);
 	
 	
 	renderParms.inRequestedPixelFormatArray = &pixelFormat;
@@ -672,14 +840,69 @@ exSDKExport(
 		pixSuite->GetBounds(renderResult.outFrame, &bounds);
 		pixSuite->GetPixelAspectRatio(renderResult.outFrame, &parN, &parD);
 		
+		assert(pixFormat == pixelFormat);
+		
 		
 		if(pixFormat == PrPixelFormat_BGRA_4444_32f_Linear || pixFormat == PrPixelFormat_BGRA_4444_32f)
 		{
+			PPixHand linearPPix = NULL;
+			PPixHand tempWorld = NULL;
+			
 			try
 			{
 				if( supportsThreads() )
 					setGlobalThreadCount(gNumCPUs);
 					
+					
+				if(sourceColorSpaceP.value.intValue != SOURCECOLORSPACE_LINEAR_ADOBE &&
+					sourceColorSpaceP.value.intValue != SOURCECOLORSPACE_LINEAR_BYPASS)
+				{
+					prSuiteError createErr = pixCreatorSuite->CreatePPix(&linearPPix, // would use ClonePPix, but broken in CS6
+																		PrPPixBufferAccess_ReadWrite,
+																		pixFormat,
+																		&bounds);
+					
+					if(createErr == malNoError && linearPPix != NULL)
+					{
+						char *linearFrameBufferP = NULL;
+						csSDK_int32 linearRowbytes = 0;
+						PrPixelFormat linearPixFormat;
+						prRect linearBounds;
+						csSDK_uint32 linearParN, linearParD;
+						
+						pixSuite->GetPixels(linearPPix, PrPPixBufferAccess_ReadWrite, &linearFrameBufferP);
+						pixSuite->GetRowBytes(linearPPix, &linearRowbytes);
+						pixSuite->GetPixelFormat(linearPPix, &linearPixFormat);
+						pixSuite->GetBounds(linearPPix, &linearBounds);
+						pixSuite->GetPixelAspectRatio(linearPPix, &linearParN, &linearParD);
+						
+						assert(linearPixFormat == pixFormat);
+						assert(linearBounds.top == bounds.top && linearBounds.bottom == bounds.bottom);
+						assert(linearBounds.left == bounds.left && linearBounds.right == bounds.right);
+						assert(linearParN == parN && linearParD == parD);
+						
+						const int linearWidth = linearBounds.right - linearBounds.left;
+						const int linearHeight = linearBounds.bottom - linearBounds.top;
+						
+						TaskGroup taskGroup;
+						
+						for(int y=0; y < linearHeight; y++)
+						{
+							ThreadPool::addGlobalTask(new ConvertColorSpaceToLinearTask(&taskGroup,
+															(float *)frameBufferP, rowbytes,
+															(float *)linearFrameBufferP, linearRowbytes,
+															linearWidth, y, (SourceColorSpace)sourceColorSpaceP.value.intValue));
+						}
+						
+						frameBufferP = linearFrameBufferP;
+						rowbytes = linearRowbytes;
+						pixFormat = linearPixFormat;
+						bounds = linearBounds;
+						parN = linearParN;
+						parD = linearParD;
+					}
+				}
+			
 				
 				bool floatNotHalf = floatP.value.intValue;
 				bool lumiChrom = lumichromP.value.intValue;
@@ -856,10 +1079,10 @@ exSDKExport(
 				
 				
 				// Color space
-				if(bypassLinearP.value.intValue)
-					addComments(header, "Conversion to linear bypassed in Premiere");
-	
-	
+				//if(bypassLinearP.value.intValue)
+				//	addComments(header, "Conversion to linear bypassed in Premiere");
+				
+				
 				if(lumiChrom)
 				{
 					// make our Rgba buffer
@@ -919,8 +1142,6 @@ exSDKExport(
 					char *buf_origin = frameBufferP;
 					size_t buf_rowbytes = rowbytes;
 					
-					
-					PPixHand tempWorld = NULL;
 					
 					// we have to make a copy of the world if we want to create Half pixels or just premultiply
 					if(pix_type == Imf::HALF || alpha)
@@ -994,18 +1215,19 @@ exSDKExport(
 					
 					file.setFrameBuffer(frameBuffer);
 					file.writePixels(height);
-					
-					
-					if(tempWorld)
-					{
-						pixSuite->Dispose(tempWorld);
-					}
 				}
 			}
 			catch(...)
 			{
 				result = exportReturn_ErrIo;
 			}
+			
+			
+			if(tempWorld)
+				pixSuite->Dispose(tempWorld);
+				
+			if(linearPPix)
+				pixSuite->Dispose(linearPPix);
 		}
 		
 		
@@ -1147,20 +1369,39 @@ exSDKGenerateDefaultParams(
 	
 	
 	// Bypass Linear Conversion
-	exParamValues bypassValues;
-	bypassValues.structVersion = 1;
-	bypassValues.value.intValue = kPrFalse;
-	bypassValues.disabled = kPrFalse;
-	bypassValues.hidden = kPrFalse;
+	//exParamValues bypassValues;
+	//bypassValues.structVersion = 1;
+	//bypassValues.value.intValue = kPrFalse;
+	//bypassValues.disabled = kPrFalse;
+	//bypassValues.hidden = kPrFalse;
+	//
+	//exNewParamInfo bypassParam;
+	//bypassParam.structVersion = 1;
+	//strncpy(bypassParam.identifier, EXRBypassLinear, 255);
+	//bypassParam.paramType = exParamType_bool;
+	//bypassParam.flags = exParamFlag_none;
+	//bypassParam.paramValues = bypassValues;
+	//
+	//exportParamSuite->AddParam(exID, gIdx, EXRSettingsGroup, &bypassParam);
 	
-	exNewParamInfo bypassParam;
-	bypassParam.structVersion = 1;
-	strncpy(bypassParam.identifier, EXRBypassLinear, 255);
-	bypassParam.paramType = exParamType_bool;
-	bypassParam.flags = exParamFlag_none;
-	bypassParam.paramValues = bypassValues;
 	
-	exportParamSuite->AddParam(exID, gIdx, EXRSettingsGroup, &bypassParam);
+	// Source Color Space
+	exParamValues colorSpaceValues;
+	colorSpaceValues.structVersion = 1;
+	colorSpaceValues.rangeMin.intValue = SOURCECOLORSPACE_LINEAR_ADOBE;
+	colorSpaceValues.rangeMax.intValue = SOURCECOLORSPACE_GAMMA22;
+	colorSpaceValues.value.intValue = SOURCECOLORSPACE_LINEAR_ADOBE;
+	colorSpaceValues.disabled = kPrFalse;
+	colorSpaceValues.hidden = kPrFalse;
+	
+	exNewParamInfo colorSpaceParam;
+	colorSpaceParam.structVersion = 1;
+	strncpy(colorSpaceParam.identifier, EXRSourceColorSpace, 255);
+	colorSpaceParam.paramType = exParamType_int;
+	colorSpaceParam.flags = exParamFlag_none;
+	colorSpaceParam.paramValues = colorSpaceValues;
+	
+	exportParamSuite->AddParam(exID, gIdx, EXRSettingsGroup, &colorSpaceParam);
 	
 	
 	// Image Settings group
@@ -1421,18 +1662,58 @@ exSDKPostProcessParams(
 	exportParamSuite->SetParamDescription(exID, gIdx, EXRFloat, paramString);
 #endif
 	
+	
 	// Bypass Linear Conversion
-	utf16ncpy(paramString, "Bypass linear conversion", 255);
-	exportParamSuite->SetParamName(exID, gIdx, EXRBypassLinear, paramString);
+	//utf16ncpy(paramString, "Bypass linear conversion", 255);
+	//exportParamSuite->SetParamName(exID, gIdx, EXRBypassLinear, paramString);
+	
+#if EXPORTMOD_VERSION >= 5
+	//utf16ncpy(paramString,
+	//			"OpenEXR files typically store images in linear color space, "
+	//			"converted from Premiere's internal video color space. "
+	//			"This option allows you to skip the conversion.",
+	//			255);
+	//exportParamSuite->SetParamDescription(exID, gIdx, EXRBypassLinear, paramString);
+#endif
+	
+	
+	// Source Color Space
+	utf16ncpy(paramString, "Source color space", 255);
+	exportParamSuite->SetParamName(exID, gIdx, EXRSourceColorSpace, paramString);
 	
 #if EXPORTMOD_VERSION >= 5
 	utf16ncpy(paramString,
-				"OpenEXR files typically store images in linear color space, "
-				"converted from Premiere's internal video color space. "
-				"This option allows you to skip the conversion.",
+				"Color space of the input source. "
+				"EXR files are typically linear, so frames will be converted from "
+				"the source color space to linear.",
 				255);
-	exportParamSuite->SetParamDescription(exID, gIdx, EXRBypassLinear, paramString);
+	exportParamSuite->SetParamDescription(exID, gIdx, EXRSourceColorSpace, paramString);
 #endif
+	
+	const char *colorSpaceStrings[] = {	"Linear (Adobe)",
+										"Linear",
+										"sRGB",
+										"Rec. 709",
+										"Cineon",
+										"Gamma 2.2" };
+										
+	csSDK_int32 colorSpaceValues[] = {	SOURCECOLORSPACE_LINEAR_ADOBE,
+										SOURCECOLORSPACE_LINEAR_BYPASS,
+										SOURCECOLORSPACE_SRGB,
+										SOURCECOLORSPACE_REC709,
+										SOURCECOLORSPACE_CINEON,
+										SOURCECOLORSPACE_GAMMA22 };
+	
+	exportParamSuite->ClearConstrainedValues(exID, gIdx, EXRSourceColorSpace);
+	
+	exOneParamValueRec tempColorSpace;
+	
+	for(csSDK_int32 i=0; i < sizeof(colorSpaceValues) / sizeof (csSDK_int32); i++)
+	{
+		tempColorSpace.intValue = colorSpaceValues[i];
+		utf16ncpy(paramString, colorSpaceStrings[i], 255);
+		exportParamSuite->AddConstrainedValuePair(exID, gIdx, EXRSourceColorSpace, &tempColorSpace, paramString);
+	}
 	
 	// Image Settings group
 	utf16ncpy(paramString, "Image Settings", 255);
@@ -1659,15 +1940,17 @@ exSDKGetParamSummary(
 	
 	
 	// EXR settings
-	exParamValues compression, compressionLevel, floatNotHalf, lumiChrom, bypassLinear;
+	exParamValues compression, compressionLevel, floatNotHalf, lumiChrom, colorSpace; //bypassLinear;
 	
-	bypassLinear.value.intValue = kPrFalse;
+	//bypassLinear.value.intValue = kPrFalse;
+	colorSpace.value.intValue = SOURCECOLORSPACE_LINEAR_ADOBE;
 	
 	paramSuite->GetParamValue(exID, mgroupIndex, EXRCompression, &compression);
 	paramSuite->GetParamValue(exID, mgroupIndex, EXRCompressionLevel, &compressionLevel);
 	paramSuite->GetParamValue(exID, mgroupIndex, EXRLumiChrom, &lumiChrom);
 	paramSuite->GetParamValue(exID, mgroupIndex, EXRFloat, &floatNotHalf);
-	paramSuite->GetParamValue(exID, mgroupIndex, EXRBypassLinear, &bypassLinear);
+	//paramSuite->GetParamValue(exID, mgroupIndex, EXRBypassLinear, &bypassLinear);
+	paramSuite->GetParamValue(exID, mgroupIndex, EXRSourceColorSpace, &colorSpace);
 	
 	switch(compression.value.intValue)
 	{
@@ -1731,8 +2014,21 @@ exSDKGetParamSummary(
 	else if(floatNotHalf.value.intValue)
 		bitrateSummary += ", 32-bit float";
 
-	if(bypassLinear.value.intValue)
-		bitrateSummary += ", Bypass";
+	//if(bypassLinear.value.intValue)
+	//	bitrateSummary += ", Bypass";
+	
+	if(colorSpace.value.intValue != SOURCECOLORSPACE_LINEAR_ADOBE)
+	{
+		const std::string colorSpaceString = (colorSpace.value.intValue == SOURCECOLORSPACE_LINEAR_ADOBE ? "Linear (Adobe)" :
+												colorSpace.value.intValue == SOURCECOLORSPACE_LINEAR_BYPASS ? "Linear" :
+												colorSpace.value.intValue == SOURCECOLORSPACE_SRGB ? "sRGB" :
+												colorSpace.value.intValue == SOURCECOLORSPACE_REC709 ? "Rec. 709" :
+												colorSpace.value.intValue == SOURCECOLORSPACE_CINEON ? "Cineon" :
+												colorSpace.value.intValue == SOURCECOLORSPACE_GAMMA22 ? "Gamma 2.2" :
+												"Unknown");
+		
+		bitrateSummary += ", " + colorSpaceString + " source color space";
+	}
 
 #if EXPORTMOD_VERSION >= 5
 	utf16ncpy(summaryRecP->videoSummary, videoSummary.c_str(), 255);

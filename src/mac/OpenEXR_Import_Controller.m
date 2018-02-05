@@ -45,7 +45,7 @@
 			green:(NSString *)greenChannel
 			blue:(NSString *)blueChannel
 			alpha:(NSString *)alphaChannel
-			bypass:(BOOL)bypassConversion
+			colorSpace:(NSString *)colorSpace
 {
 	self = [super init];
 	
@@ -69,7 +69,7 @@
 	[blueMenu selectItemWithTitle:blueChannel];
 	[alphaMenu selectItemWithTitle:alphaChannel];
 	
-	[bypassCheckbox setState:(bypassConversion ? NSOnState : NSOffState)];
+	[colorSpaceMenu selectItemWithTitle:colorSpace];
 	
 	theResult = INDIALOG_RESULT_CONTINUE;
 	
@@ -108,8 +108,8 @@
 	return [[alphaMenu selectedItem] title];
 }
 
-- (BOOL)getBypass {
-	return ([bypassCheckbox state] == NSOnState);
+- (NSString *)getColorSpace {
+	return [[colorSpaceMenu selectedItem] title];
 }
 
 @end

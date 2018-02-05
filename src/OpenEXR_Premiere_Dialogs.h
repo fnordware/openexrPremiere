@@ -42,6 +42,15 @@
 #include <list>
 
 typedef std::list<std::string> ChannelsList;
+
+typedef enum {
+	DIALOG_COLORSPACE_LINEAR_ADOBE = 0,
+	DIALOG_COLORSPACE_LINEAR_BYPASS,
+	DIALOG_COLORSPACE_SRGB,
+	DIALOG_COLORSPACE_REC709,
+	DIALOG_COLORSPACE_CINEON,
+	DIALOG_COLORSPACE_GAMMA22
+} DialogColorSpace;
 	
 bool	
 ProEXR_Channels(
@@ -50,7 +59,7 @@ ProEXR_Channels(
 	std::string			&green,
 	std::string			&blue,
 	std::string			&alpha,
-	bool				&bypassConversion,
+	DialogColorSpace	&colorSpace,
 	const void			*plugHndl,
 	const void			*mwnd);
 

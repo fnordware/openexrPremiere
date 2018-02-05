@@ -76,6 +76,14 @@ static const csSDK_int32 OpenEXR_ID = 'oEXR';
 
 extern unsigned int gNumCPUs;
 
+typedef enum {
+	COLORSPACE_LINEAR_ADOBE = 0,
+	COLORSPACE_LINEAR_BYPASS,
+	COLORSPACE_SRGB,
+	COLORSPACE_REC709,
+	COLORSPACE_CINEON,
+	COLORSPACE_GAMMA22
+} ColorSpace;
 
 typedef struct
 {	
@@ -98,7 +106,7 @@ typedef struct
 	char			magic[4];
 	csSDK_uint8		version;
 	csSDK_uint8		file_init;
-	csSDK_uint8		bypassConversion;
+	csSDK_uint8		colorSpace;
 	csSDK_uint8		reserved[9];
 	char			red[Name::SIZE];
 	char			green[Name::SIZE];
@@ -612,7 +620,7 @@ InitPrefs(
 		
 		strcpy(prefs->alpha, (channels.findChannel("A") ? "A" : "(none)"));
 		
-		prefs->bypassConversion = false;
+		prefs->colorSpace = COLORSPACE_LINEAR_ADOBE;
 		
 		prefs->file_init = TRUE;
 	}
@@ -724,9 +732,9 @@ SDKGetPrefs8(
 							blue = prefs->blue,
 							alpha = prefs->alpha;
 							
-					bool bypassConversion = prefs->bypassConversion;
+					DialogColorSpace colorSpace = (DialogColorSpace)prefs->colorSpace;
 					
-					bool clicked_ok = ProEXR_Channels(channels_list, red, green, blue, alpha, bypassConversion, plugHndl, mwnd);
+					bool clicked_ok = ProEXR_Channels(channels_list, red, green, blue, alpha, colorSpace, plugHndl, mwnd);
 					
 					
 					if(clicked_ok)
@@ -736,7 +744,7 @@ SDKGetPrefs8(
 						strncpy(prefs->blue, blue.c_str(), Name::MAX_LENGTH);
 						strncpy(prefs->alpha, alpha.c_str(), Name::MAX_LENGTH);
 						
-						prefs->bypassConversion = bypassConversion;
+						prefs->colorSpace = colorSpace;
 					
 					#ifdef PREMIERE_CACHE_NOT_CLEARING
 						// Was previously having problems with prefs changing and the cache not clearing
@@ -858,9 +866,16 @@ SDKAnalysis(
 		
 		assert(prefs != NULL); // should have this under control now
 		
-		if(prefs != NULL && prefs->bypassConversion)
+		if(prefs != NULL && prefs->colorSpace != COLORSPACE_LINEAR_ADOBE)
 		{
-			info += ", Bypass linear conversion";
+			const std::string colorSpaceName = (prefs->colorSpace == COLORSPACE_LINEAR_ADOBE ? "Linear (Adobe)" :
+												prefs->colorSpace == COLORSPACE_LINEAR_BYPASS ? "Linear" :
+												prefs->colorSpace == COLORSPACE_SRGB ? "sRGB" :
+												prefs->colorSpace == COLORSPACE_CINEON ? "Cineon" :
+												prefs->colorSpace == COLORSPACE_GAMMA22 ? "Gamma 2.2" :
+												"Unknown");
+		
+			info += ", " + colorSpaceName + " color space";
 		}
 		
 		if(info.size() > SDKAnalysisRec->buffersize - 1)
@@ -1367,6 +1382,175 @@ CopyPPixRowTask::execute()
 }
 
 
+class ConvertLinearToColorSpaceTask : public Task
+{
+  public:
+	ConvertLinearToColorSpaceTask(TaskGroup *group,
+								float *bgra_origin, RowbyteType rowbytes,
+								int width, int row, ColorSpace colorSpace);
+	virtual ~ConvertLinearToColorSpaceTask() {}
+	
+	virtual void execute();
+
+  private:
+	float *_row;
+	const int _width;
+	const ColorSpace _colorSpace;
+	
+	float _logGain;
+	float _logOffset;
+	const int _logRefBlack;
+	const int _logRefWhite;
+	const float _logGamma;
+	
+	typedef struct BRGApixel
+	{
+		float b;
+		float g;
+		float r;
+		float a;
+	} BGRApixel;
+	
+	static inline float Linear2sRGB(const float &in);
+	static inline float Linear2Rec709(const float &in);
+	inline float Linear2Cineon(const float &in);
+	static inline float Linear2Gamma22(const float &in);
+};
+
+
+ConvertLinearToColorSpaceTask::ConvertLinearToColorSpaceTask(TaskGroup *group,
+																float *bgra_origin, RowbyteType rowbytes,
+																int width, int row, ColorSpace colorSpace) :
+	Task(group),
+	_width(width),
+	_colorSpace(colorSpace),
+	_logRefBlack(95),
+	_logRefWhite(685),
+	_logGamma(1.0)
+{
+	_row = (float *)((char *)bgra_origin + (rowbytes * row));
+	
+	if(colorSpace == COLORSPACE_CINEON)
+	{
+		_logGain = 1.0f / (1.0f - pow(pow(10.0f, (_logRefBlack - _logRefWhite) * (0.002f/0.6f) ), 1.0f/_logGamma ) );
+		_logOffset = _logGain - 1.0f;
+	}
+}
+												
+
+void
+ConvertLinearToColorSpaceTask::execute()
+{
+	BRGApixel *pix = (BRGApixel *)_row;
+	
+	for(int x=0; x < _width; x++)
+	{
+		const bool unmult = (pix->a > 0.f && pix->a < 1.f);
+		
+		if(unmult)
+		{
+			pix->b /= pix->a;
+			pix->g /= pix->a;
+			pix->r /= pix->a;
+		}
+		
+		pix++;
+	}
+	
+	
+	pix = (BRGApixel *)_row;
+	
+	if(_colorSpace == COLORSPACE_SRGB)
+	{
+		for(int x=0; x < _width; x++)
+		{
+			pix->b = Linear2sRGB(pix->b);
+			pix->g = Linear2sRGB(pix->g);
+			pix->r = Linear2sRGB(pix->r);
+			
+			pix++;
+		}
+	}
+	else if(_colorSpace == COLORSPACE_REC709)
+	{
+		for(int x=0; x < _width; x++)
+		{
+			pix->b = Linear2Rec709(pix->b);
+			pix->g = Linear2Rec709(pix->g);
+			pix->r = Linear2Rec709(pix->r);
+			
+			pix++;
+		}
+	}
+	else if(_colorSpace == COLORSPACE_CINEON)
+	{
+		for(int x=0; x < _width; x++)
+		{
+			pix->b = Linear2Cineon(pix->b);
+			pix->g = Linear2Cineon(pix->g);
+			pix->r = Linear2Cineon(pix->r);
+			
+			pix++;
+		}
+	}
+	else if(_colorSpace == COLORSPACE_GAMMA22)
+	{
+		for(int x=0; x < _width; x++)
+		{
+			pix->b = Linear2Gamma22(pix->b);
+			pix->g = Linear2Gamma22(pix->g);
+			pix->r = Linear2Gamma22(pix->r);
+			
+			pix++;
+		}
+	}
+	
+
+	pix = (BRGApixel *)_row;
+	
+	for(int x=0; x < _width; x++)
+	{
+		const bool remult = (pix->a > 0.f && pix->a < 1.f);
+		
+		if(remult)
+		{
+			pix->b *= pix->a;
+			pix->g *= pix->a;
+			pix->r *= pix->a;
+		}
+		
+		pix++;
+	}
+}
+
+
+inline float
+ConvertLinearToColorSpaceTask::Linear2sRGB(const float &in)
+{
+	return (in <= 0.0031308f ? (in * 12.92f) : 1.055f * powf(in, 1.f / 2.4f) - 0.055f);
+}
+
+inline float
+ConvertLinearToColorSpaceTask::Linear2Rec709(const float &in)
+{
+	return (in <= 0.018f ? (in * 4.5f) : 1.099f * powf(in, 0.45f) - 0.099f);
+}
+
+inline float
+ConvertLinearToColorSpaceTask::Linear2Cineon(const float &in)
+{
+	const float val = _logRefWhite + (log10( pow( (in + _logOffset)/_logGain, _logGamma ) ) / (0.002f/0.6f) );
+
+	return (val / 1023.f);
+}
+
+inline float
+ConvertLinearToColorSpaceTask::Linear2Gamma22(const float &in)
+{
+	return (in < 0.f ? -powf(-in, 1.f / 2.2f) : powf(in, 1.f / 2.2f) );
+}
+
+
 static prMALError 
 SDKGetSourceVideo(
 	imStdParms			*stdparms, 
@@ -1397,7 +1581,7 @@ SDKGetSourceVideo(
 		const char *red = "R", *green = "G", *blue = "B", *alpha = "A";
 		const char *y = "Y", *ry = "RY", *by = "BY";
 		
-		bool bypassConversion = false;
+		ColorSpace colorSpace = COLORSPACE_LINEAR_ADOBE;
 		
 		assert(prefs != NULL); // should have been created by imGetPrefs8 or imGetInfo8
 		
@@ -1411,7 +1595,7 @@ SDKGetSourceVideo(
 			blue = prefs->blue;
 			alpha = prefs->alpha;
 			
-			bypassConversion = prefs->bypassConversion;
+			colorSpace = (ColorSpace)prefs->colorSpace;
 		}
 		else if(in.channels().findChannel("Y") && !in.channels().findChannel("R"))
 		{
@@ -1437,7 +1621,7 @@ SDKGetSourceVideo(
 		
 		imFrameFormat frameFormat = sourceVideoRec->inFrameFormats[0];
 		
-		frameFormat.inPixelFormat = (bypassConversion ? PrPixelFormat_BGRA_4444_32f : PrPixelFormat_BGRA_4444_32f_Linear);
+		frameFormat.inPixelFormat = (colorSpace == COLORSPACE_LINEAR_ADOBE ? PrPixelFormat_BGRA_4444_32f_Linear : PrPixelFormat_BGRA_4444_32f);
 				
 		const Box2i &dispW = in.displayWindow();
 		
@@ -1655,6 +1839,19 @@ SDKGetSourceVideo(
 														data_pixel_origin, dataW_rowbytes,
 														display_pixel_origin, rowBytes,
 														copy_width * 4, y) );
+				}
+			}
+			
+			if(colorSpace == COLORSPACE_SRGB || colorSpace == COLORSPACE_REC709 ||
+				colorSpace == COLORSPACE_CINEON || colorSpace == COLORSPACE_GAMMA22)
+			{
+				TaskGroup taskGroup;
+				
+				for(int y=0; y < height; y++)
+				{
+					ThreadPool::addGlobalTask(new ConvertLinearToColorSpaceTask(&taskGroup,
+													(float *)buf, rowBytes,
+													width, y, colorSpace));
 				}
 			}
 		}

@@ -54,7 +54,7 @@ ProEXR_Channels(
 	string				&green,
 	string				&blue,
 	string				&alpha,
-	bool				&bypassConversion,
+	DialogColorSpace	&colorSpace,
 	const void			*plugHndl,
 	const void			*mwnd)
 {
@@ -75,13 +75,21 @@ ProEXR_Channels(
 		{
 			[menu_items addObject:[NSString stringWithUTF8String:i->c_str()]];
 		}
-	
+		
+		const char *colorSpaceName = (colorSpace == DIALOG_COLORSPACE_LINEAR_ADOBE ? "Linear (Adobe)" :
+										colorSpace == DIALOG_COLORSPACE_LINEAR_BYPASS ? "Linear" :
+										colorSpace == DIALOG_COLORSPACE_SRGB ? "sRGB" :
+										colorSpace == DIALOG_COLORSPACE_REC709 ? "Rec. 709" :
+										colorSpace == DIALOG_COLORSPACE_CINEON ? "Cineon" :
+										colorSpace == DIALOG_COLORSPACE_GAMMA22 ? "Gamma 2.2" :
+										"Linear (Adobe)");
+										
 		OpenEXR_Import_Controller *ui_controller = [[ui_controller_class alloc] init:menu_items
 													red:[NSString stringWithUTF8String:red.c_str()]
 													green:[NSString stringWithUTF8String:green.c_str()]
 													blue:[NSString stringWithUTF8String:blue.c_str()]
 													alpha:[NSString stringWithUTF8String:alpha.c_str()]
-													bypass:bypassConversion];
+													colorSpace:[NSString stringWithUTF8String:colorSpaceName]];
 		if(ui_controller)
 		{
 			NSWindow *my_window = [ui_controller getWindow];
@@ -106,12 +114,20 @@ ProEXR_Channels(
 				
 				if(dialog_result == INDIALOG_RESULT_OK || modal_result == NSRunStoppedResponse)
 				{
-					red   = [[ui_controller getRed]   cStringUsingEncoding:NSUTF8StringEncoding];
-					green = [[ui_controller getGreen] cStringUsingEncoding:NSUTF8StringEncoding];
-					blue  = [[ui_controller getBlue]  cStringUsingEncoding:NSUTF8StringEncoding];
-					alpha = [[ui_controller getAlpha] cStringUsingEncoding:NSUTF8StringEncoding];
+					red   = [[ui_controller getRed]   UTF8String];
+					green = [[ui_controller getGreen] UTF8String];
+					blue  = [[ui_controller getBlue]  UTF8String];
+					alpha = [[ui_controller getAlpha] UTF8String];
 					
-					bypassConversion = [ui_controller getBypass];
+					NSString *colorSpaceString = [ui_controller getColorSpace];
+					
+					colorSpace = ([colorSpaceString isEqualToString:@"Linear (Adobe)"] ? DIALOG_COLORSPACE_LINEAR_ADOBE :
+									[colorSpaceString isEqualToString:@"Linear"] ? DIALOG_COLORSPACE_LINEAR_BYPASS :
+									[colorSpaceString isEqualToString:@"sRGB"] ? DIALOG_COLORSPACE_SRGB :
+									[colorSpaceString isEqualToString:@"Rec. 709"] ? DIALOG_COLORSPACE_REC709 :
+									[colorSpaceString isEqualToString:@"Cineon"] ? DIALOG_COLORSPACE_CINEON :
+									[colorSpaceString isEqualToString:@"Gamma 2.2"] ? DIALOG_COLORSPACE_GAMMA22 :
+									DIALOG_COLORSPACE_LINEAR_ADOBE);
 					
 					result = true;
 				}
