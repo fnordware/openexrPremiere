@@ -53,7 +53,8 @@ static string				*g_red;
 static string				*g_green;
 static string				*g_blue;
 static string				*g_alpha;
-static bool					g_bypass;
+//static bool					g_bypass;
+static DialogColorSpace		g_colorSpace;
 
 
 // dialog item IDs
@@ -65,7 +66,8 @@ enum {
 	IN_Green_Menu, 
 	IN_Blue_Menu,
 	IN_Alpha_Menu,
-	IN_Bypass_Check
+	//IN_Bypass_Check
+	IN_Color_Space_Menu
 };
 
 
@@ -120,7 +122,22 @@ static BOOL CALLBACK InDialogProc(HWND hwndDlg, UINT message, WPARAM wParam, LPA
 				current_index++;
 			}
 
-			SendMessage(GetDlgItem(hwndDlg, IN_Bypass_Check), BM_SETCHECK, (WPARAM)g_bypass, (LPARAM)0);
+			//SendMessage(GetDlgItem(hwndDlg, IN_Bypass_Check), BM_SETCHECK, (WPARAM)g_bypass, (LPARAM)0);
+
+			const char *colorSpaces[] = {	"Linear (Adobe)",
+											"Linear",
+											"sRGB",
+											"Rec. 709",
+											"Cineon",
+											"Gamma 2.2" };
+
+			for(int i=DIALOG_COLORSPACE_LINEAR_ADOBE; i <= DIALOG_COLORSPACE_GAMMA22; i++)
+			{
+				SendMessage(GetDlgItem(hwndDlg, IN_Color_Space_Menu), (UINT)CB_ADDSTRING, (WPARAM)wParam, (LPARAM)(LPCTSTR)colorSpaces[i]);
+				SendMessage(GetDlgItem(hwndDlg, IN_Color_Space_Menu), (UINT)CB_SETITEMDATA, (WPARAM)i, (LPARAM)(DWORD)i); // this is the channel index number
+			}
+
+			SendMessage(GetDlgItem(hwndDlg, IN_Color_Space_Menu), CB_SETCURSEL, (WPARAM)g_colorSpace, (LPARAM)0);
 
 		  }while(0);
 		return FALSE;
@@ -151,7 +168,9 @@ static BOOL CALLBACK InDialogProc(HWND hwndDlg, UINT message, WPARAM wParam, LPA
 							*value[j] = channel_name;
 						}
 
-						g_bypass = SendMessage(GetDlgItem(hwndDlg, IN_Bypass_Check), BM_GETCHECK, (WPARAM)0, (LPARAM)0);
+						//g_bypass = SendMessage(GetDlgItem(hwndDlg, IN_Bypass_Check), BM_GETCHECK, (WPARAM)0, (LPARAM)0);
+
+						g_colorSpace = (DialogColorSpace)SendMessage(GetDlgItem(hwndDlg, IN_Color_Space_Menu),(UINT)CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
 
 					}while(0);
 
@@ -172,7 +191,7 @@ ProEXR_Channels(
 	string				&green,
 	string				&blue,
 	string				&alpha,
-	bool				&bypassConversion,
+	DialogColorSpace	&colorSpace,
 	const void			*plugHndl,
 	const void			*mwnd)
 {
@@ -183,7 +202,8 @@ ProEXR_Channels(
 	g_green = &green;
 	g_blue = &blue;
 	g_alpha = &alpha;
-	g_bypass = bypassConversion;
+	//g_bypass = bypassConversion;
+	g_colorSpace = colorSpace;
 
 
 	int status = DialogBox(hDllInstance, (LPSTR)"CHANDIALOG", (HWND)mwnd, (DLGPROC)InDialogProc);
@@ -195,7 +215,8 @@ ProEXR_Channels(
 		green = *g_green;
 		blue = *g_blue;
 		alpha = *g_alpha;
-		bypassConversion = g_bypass;
+		//bypassConversion = g_bypass;
+		colorSpace = g_colorSpace;
 
 		result = true;
 	}

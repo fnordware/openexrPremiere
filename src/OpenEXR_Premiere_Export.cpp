@@ -634,7 +634,7 @@ ConvertColorSpaceToLinearTask::ConvertColorSpaceToLinearTask(TaskGroup *group,
 	_logRefWhite(685),
 	_logGamma(1.0)
 {
-	_src_row = (float *)((char *)src_bgra_origin + (src_rowbytes * row));
+	_src_row = (const float *)((const char *)src_bgra_origin + (src_rowbytes * row));
 	_dest_row = (float *)((char *)dest_bgra_origin + (dest_rowbytes * row));
 	
 	if(colorSpace == SOURCECOLORSPACE_CINEON)
