@@ -1,0 +1,108 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{e30d425c-6bd4-483e-b26d-049d97ddc5db}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{3f090ee2-d790-49d2-a043-aba2bde4fa42}</UniqueIdentifier>
+      <Extensions>.h</Extensions>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{29668417-d8d3-4332-8884-fd25ca2e3f47}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\src\win\OpenEXR_banner.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\..\src\win\OpenEXR_Import.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="..\..\src\win\OpenEXR_Import_Dialog.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKAlphaTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKAsyncImporter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKAudioSuite.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKClassData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKEntry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKImport.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKImporterShared.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKMALErrors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKPixelFormat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKPlugMemory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKPlugPPix.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKPlugSuites.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKPlugUtilities.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKPlugWindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKPPixCacheSuite.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKPPixCreatorSuite.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKTimeSuite.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\PrSDKTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\SPBasic.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\SPConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\SPErrorCodes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\Premiere Pro CS6 r2 Win SDK\Examples\Headers\SPTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ImfHybridInputFile.h" />
+    <ClInclude Include="..\..\src\OpenEXR_Premiere_Dialogs.h" />
+    <ClInclude Include="..\..\src\OpenEXR_Premiere_Export.h" />
+    <ClInclude Include="..\..\src\OpenEXR_Premiere_Import.h" />
+    <ClInclude Include="..\..\src\OpenEXR_Premiere_IO.h" />
+    <ClInclude Include="..\..\src\OpenEXR_UTF.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\ImfHybridInputFile.cpp" />
+    <ClCompile Include="..\..\src\win\OpenEXR_Premiere_Dialogs_Win.cpp" />
+    <ClCompile Include="..\..\src\OpenEXR_Premiere_Export.cpp" />
+    <ClCompile Include="..\..\src\OpenEXR_Premiere_Import.cpp" />
+    <ClCompile Include="..\..\src\OpenEXR_Premiere_IO.cpp" />
+    <ClCompile Include="..\..\src\OpenEXR_UTF.cpp" />
+  </ItemGroup>
+</Project>
