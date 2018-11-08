@@ -1,15 +1,21 @@
+Moved
+=====
+
+This repo has been [moved](http://fnordware.blogspot.com/2018/09/screw-you-microsoft.html) to [GitLab](https://gitlab.com/fnordware/openexrPremiere).
+
+
 openexrPremiere
 ===============
 
 This is the OpenEXR plug-in that ships with Adobe Premiere Pro, Adobe Media Encoder, and other Adobe apps. It is also available for download on the fnord software [web site](http://www.fnordware.com/OpenEXR/) as part of the [ProEXR](http://www.fnordware.com/ProEXR/) package, which includes some additional commercial plug-ins.
 
 
-#####Written by
+## Written by
 
 [Brendan Bolles](http://github.com/fnordware/)
 
 
 
-#####License
+## License
 
 [BSD](http://opensource.org/licenses/BSD-2-Clause)
